@@ -8,7 +8,7 @@ export async function getRegions(): Promise<WineRegion[]> {
   let query = supabase
     .from("wine_regions")
     .select(
-      "id, slug, name_fr, name_en, color_hex, map_order, status, published_at, geojson, centroid_lat, centroid_lng",
+      "id, slug, name_fr, name_en, color_hex, department_count, area_hectares, total_production_hl, map_order, status, published_at, geojson, centroid_lat, centroid_lng",
     )
     .is("deleted_at", null);
 

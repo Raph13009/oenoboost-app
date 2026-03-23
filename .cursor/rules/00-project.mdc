@@ -1,0 +1,111 @@
+---
+description: OenoBoost — Tech stack, general conventions and project structure
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+alwaysApply: true
+---
+
+# OenoBoost — Project Rules
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router only — never use Pages Router)
+- **Language**: TypeScript strict (`strict: true` in tsconfig)
+- **Styling**: Tailwind CSS v3 + Shadcn/ui (components in `components/ui/`)
+- **Backend**: Supabase (PostgreSQL) — no ORM, raw SQL queries via Supabase client
+- **Auth**: Supabase Auth
+- **Map**: Mapbox GL JS
+- **Deployment**: Vercel
+
+## Folder Structure
+
+```
+app/                        # Next.js routing ONLY — zero business logic here
+  (auth)/                   # Auth route group (login, register, reset-password)
+  (app)/                    # Protected route group (main app)
+    vignoble/
+    cepages/
+    sols/
+    vinification/
+    degustation/
+    dictionnaire/
+    quiz/
+    profil/
+  layout.tsx
+  globals.css
+
+features/                   # Business logic by module — the core of the app
+  vignoble/
+    components/             # Module-specific components
+    hooks/                  # Module-specific React hooks
+    queries/                # All Supabase query functions for this module
+    types.ts                # Module TypeScript types
+  cepages/
+  sols/
+  vinification/
+  degustation/
+  dictionnaire/
+  quiz/
+  auth/
+
+components/                 # Global reusable UI components
+  ui/                       # Shadcn/ui (auto-generated — never edit manually)
+  shared/                   # Custom global components (Navbar, Footer, PremiumGate, etc.)
+
+lib/                        # Pure utilities, no state
+  supabase/
+    client.ts               # Supabase browser client
+    server.ts               # Supabase server client (for Server Components)
+  utils/
+    i18n.ts                 # Translation helper (see rule 03-i18n)
+    cn.ts                   # clsx + tailwind-merge wrapper
+
+types/                      # Global shared TypeScript types
+  database.ts               # Types generated from Supabase schema
+  globals.ts                # Global types (Locale, UserPlan, UserRole, etc.)
+```
+
+## Naming Conventions
+
+- **Component files**: `kebab-case.tsx` — e.g. `wine-card.tsx`, `premium-gate.tsx`
+- **Hook files**: `use-kebab-case.ts` — e.g. `use-locale.ts`
+- **Query files**: `kebab-case.queries.ts` — e.g. `vignoble.queries.ts`
+- **React components**: `PascalCase` for the function name — e.g. `export default function WineCard()`
+- **Types & interfaces**: `PascalCase` — e.g. `WineRegion`, `UserProfile`
+- **Constants**: `SCREAMING_SNAKE_CASE` — e.g. `MAX_FREE_FAVORITES`
+
+## Component Rules
+
+- **Server Components by default** — only add `"use client"` when strictly necessary (interactivity, browser APIs, hooks)
+- **No business logic in `app/` pages** — pages only import and compose feature components
+- **No direct Supabase calls in components** — always go through `features/[module]/queries/`
+- **No hardcoded colors or spacing** — always use Tailwind tokens or CSS variables defined in the design system
+
+## Key Application Concepts
+
+### Freemium
+- Users have a `plan` field: `'free'` or `'premium'`
+- Free users: access to 20% of content, max 5 favorites, no advanced quiz, no tasting sheet
+- Always wrap premium content with the `<PremiumGate>` component
+- Never enforce freemium limits in the database — enforce in the application layer
+
+### Bilingual Content
+- All editorial content has `_fr` and `_en` column variants in the database
+- User locale is stored in `users.locale` (`'fr'` or `'en'`)
+- Always use the `getContent(obj, field, locale)` helper — never access `_fr`/`_en` directly in components
+
+### Content Status
+- All content tables have a `status` field: `'draft'` | `'published'` | `'archived'`
+- Only query `status = 'published'` content on the public-facing platform
+- The CMS (separate repo at `cms.oenoboost.com`) handles draft/archived content
+
+### Soft Delete
+- Content tables have a `deleted_at` timestamp column
+- Always filter `deleted_at IS NULL` in queries — never show soft-deleted content
+
+## Database
+
+- **Primary keys**: UUID v4 (`id`)
+- **Foreign keys**: `{singular_table}_id` — e.g. `region_id`, `user_id`
+- **Booleans**: prefixed with `is_` — e.g. `is_premium`, `is_verified`
+- **Emails**: always normalized with `LOWER()` on insert and query
+- **Geographic data**: `geojson JSONB` + `centroid_lat` / `centroid_lng DOUBLE PRECISION` for Mapbox

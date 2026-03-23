@@ -1,0 +1,188 @@
+---
+description: OenoBoost — Data fetching strategy (current + target Next.js 15)
+globs: ["app/**/*.ts", "app/**/*.tsx", "features/**/*.ts", "features/**/*.tsx", "lib/**/*.ts"]
+alwaysApply: true
+---
+
+# OenoBoost — Data Fetching
+
+## Scope
+
+This rule defines how data is read, cached, invalidated, and surfaced in UI for OenoBoost, with:
+- **Current state compatibility** (CMS pattern already in place)
+- **Target state alignment** (Next.js 15 + Supabase best practices)
+- **Progressive migration** (no breaking rewrite)
+
+---
+
+## 1) Source of truth by layer
+
+- **Server Components**: default place for page-level list fetching.
+- **Client Components**: only for interaction (filters, drawers, inline edits, optimistic UX).
+- **Server Actions**: all mutations (create/update/delete) and privileged reads.
+- **API routes**: only when needed for external/public HTTP contract or map/test endpoints.
+- **Supabase access**:
+  - CMS server: service-role client (`getSupabaseAdmin`) for admin operations.
+  - Never expose service key to browser code.
+  - Browser-side Supabase client is opt-in and must use anon key + RLS-safe queries only.
+
+---
+
+## 2) Server vs client boundary (Decision 3C)
+
+### Lists / index pages
+- Fetch in **Server Components**.
+- Pass serialized data to client UI components.
+- Keep query params (`page`, `q`, filters) as URL state.
+
+### Detail panels / editors
+- Client may request detail through a server action or route handler.
+- Use this for drawer/panel UX where selection changes frequently.
+- Do not duplicate full list query logic in client.
+
+### Mutations
+- Always server-only.
+- Return typed result or throw, then refresh/invalidate.
+
+---
+
+## 3) Caching strategy (Decision 1C)
+
+Use a mixed policy:
+
+### A) List data (cacheable)
+- Prefer cached fetch/read with revalidation window.
+- Typical target: `revalidate: 30-120s` (choose by volatility).
+- Use tags for selective invalidation.
+
+### B) Detail/admin-sensitive data (fresh)
+- Use dynamic/no-store for highly volatile data:
+  - admin detail drawers
+  - auth-sensitive reads
+  - test/debug map endpoints
+- Avoid stale detail after edits.
+
+### C) Practical default
+- If uncertain:
+  - list = cache + tag
+  - detail = `no-store` or force-dynamic
+
+---
+
+## 4) Invalidation strategy (Decision 2C)
+
+Use **hybrid invalidation** during transition:
+
+- On mutation:
+  1. `revalidateTag(...)` for targeted caches
+  2. `revalidatePath(...)` for route-level safety
+
+### Tag naming convention
+- `table:<table_name>`
+- `entity:<table_name>:<id>`
+- `list:<domain>:<filter_key>`
+
+Examples:
+- `table:appellations`
+- `entity:users:<id>`
+- `list:appellations:region=<id>`
+
+Rule: new code should add tags first; keep `revalidatePath` until all reads are tag-aware.
+
+---
+
+## 5) Error handling (Decision 5B)
+
+Standardize on: **throw on server + `error.tsx` boundaries in app segments**
+
+- Query/service/action layers throw domain-friendly errors.
+- Page segments must define `error.tsx` where user-facing recovery is needed.
+- Avoid silent catch-and-empty unless explicitly intended UX.
+- For expected empty results, return empty data; for failures, throw.
+
+Error shape guideline:
+- Include operation + entity context.
+- Do not leak secrets/keys/raw SQL.
+
+---
+
+## 6) Loading UX (Decision 4C)
+
+- **List/page transitions**: skeleton loaders (`loading.tsx` or component skeletons).
+- **Short actions** (save/delete/toggle): spinner or pending state on buttons.
+- **Drawer detail loading**: lightweight skeleton/spinner inside panel.
+- Avoid full-page blocking for panel-level interactions.
+
+---
+
+## 7) Retry policy (Decision 6B)
+
+- Retry only transient failures (timeouts/network/5xx-like transient states).
+- **Max retry = 1** with short backoff.
+- No retry for validation/auth/permission errors.
+- Keep retries in query/service helpers, not scattered in UI.
+
+---
+
+## 8) AOP ↔ Subregion transition model (Decision 7C)
+
+During migration, support both:
+
+- `appellation_subregion_links` (current operational relation)
+- `appellations.subregion_id` (target simplification)
+
+### Read rules
+- Prefer canonical read path per feature, but provide fallback adapter.
+- If both exist and disagree, log warning and prefer configured canonical source.
+
+### Write rules
+- Mutation path must sync both models during transition.
+- Add integrity checks in admin/service layer for divergence detection.
+
+### Exit criteria (to remove dual model)
+- 100% rows backfilled
+- divergence checks clean
+- all reads switched to target model
+- legacy relation deprecated intentionally
+
+---
+
+## 9) Supabase + Auth/RLS notes
+
+- CMS currently relies on service-role server access + custom admin session.
+- Service-role bypasses RLS; never assume RLS is enforcing CMS queries.
+- If browser queries are introduced, they must be RLS-safe and anon-key only.
+- Keep auth checks at server boundary before privileged reads/mutations.
+
+---
+
+## 10) Query design rules
+
+- Select only required columns (no broad `*` in production paths).
+- Always apply soft-delete filters where applicable (`deleted_at IS NULL`).
+- Keep filtering/pagination/sort in DB query.
+- Avoid N+1 by batching related reads or explicit joins.
+- Centralize complex query composition in dedicated query/service modules.
+
+---
+
+## 11) Minimal migration plan
+
+1. Add tags to list/detail reads.
+2. Keep existing `revalidatePath` and add `revalidateTag`.
+3. Introduce segment `error.tsx` where missing.
+4. Normalize throw-based errors across server actions/services.
+5. Gradually align dynamic/no-store usage to this rule.
+6. Keep dual AOP-subregion writes until cutover criteria are met.
+
+---
+
+## 12) Done criteria for new data-fetching code
+
+A change is valid only if:
+- Boundary is respected (server list, client interaction, server mutations).
+- Cache mode is explicit (cached list vs fresh detail).
+- Invalidation includes tags (+ path during transition).
+- Errors are thrown and surfaced via boundary/fallback UX.
+- Loading UX matches context (skeleton vs spinner).
+- Soft-delete/status constraints are consistently applied.

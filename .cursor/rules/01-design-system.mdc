@@ -1,0 +1,173 @@
+---
+description: OenoBoost — Design system (colors, typography, spacing, UI rules)
+globs: ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"]
+alwaysApply: true
+---
+
+# 🎨 OenoBoost — Design System
+
+## Brand Identity
+
+OenoBoost uses a **premium, editorial, wine-inspired design**:
+- Elegant
+- Minimal
+- High contrast
+- Serif + Sans-serif pairing
+- Inspired by luxury wine / editorial magazines
+
+---
+
+## 🎨 Colors
+
+### Primary
+
+- `primary` → #7C2736 (main wine color)
+
+### Background
+
+- `background` → #FFFDEC (main app background — warm paper tone)
+
+### Text
+
+- `text-primary` → #000000
+- `text-secondary` → #7C2736
+
+### UI
+
+- `border` → rgba(0, 0, 0, 0.1)
+- `muted` → rgba(0, 0, 0, 0.05)
+- `card` → #FFFFFF
+
+---
+
+## 🧠 Usage Rules
+
+- NEVER use random colors
+- ONLY use defined tokens
+- Background should ALWAYS be `#FFFDEC`
+- Primary color used for:
+  - CTAs
+  - Active states
+  - Highlights
+
+---
+
+## 🔤 Typography
+
+### Serif (Headings)
+
+- Font: **Dream Avenue**
+- Usage:
+  - Titles
+  - AOP names
+  - Hero sections
+
+### Sans-serif (Content)
+
+- Font: **Tenor Sans**
+- Usage:
+  - Paragraphs
+  - UI
+  - Labels
+
+---
+
+## 🧠 Typography Rules
+
+- Headings → serif ONLY
+- Body → sans-serif ONLY
+- NEVER mix randomly
+
+---
+
+## 📏 Spacing System
+
+Use a **4px scale**
+
+- `xs` → 4px
+- `sm` → 8px
+- `md` → 16px
+- `lg` → 24px
+- `xl` → 32px
+- `2xl` → 48px
+
+---
+
+## 🧱 Layout Rules
+
+- Max width → `1200px`
+- Padding page → `px-6 md:px-12`
+- Grid → 2 / 3 columns max
+- Always airy spacing (premium feel)
+
+---
+
+## 🧩 Components Style
+
+### Cards
+
+- Background: white
+- Border: subtle
+- Rounded: `rounded-xl`
+- Shadow: very light
+
+---
+
+### Buttons
+
+Primary:
+- Background: #7C2736
+- Text: white
+- Hover: opacity 90%
+
+Secondary:
+- Border: #7C2736
+- Text: #7C2736
+- Background: transparent
+
+---
+
+### Inputs
+
+- Border subtle
+- No heavy shadows
+- Focus → primary color
+
+---
+
+## 🗺️ Map UI (important)
+
+- Use primary color for regions
+- Hover → darker shade
+- Selected → highlighted + border
+
+---
+
+## ✨ Interaction Style
+
+- Smooth transitions (150–250ms)
+- No aggressive animations
+- Subtle hover effects only
+
+---
+
+## ❌ Forbidden
+
+- Bright colors (blue, green, etc.)
+- Heavy shadows
+- Over-animations
+- Inconsistent spacing
+- Mixing fonts incorrectly
+
+---
+
+## 🧠 Design Philosophy
+
+Think:
+- Wine label
+- Editorial magazine
+- Luxury but simple
+
+NOT:
+- SaaS dashboard flashy UI
+- Startup gradient style

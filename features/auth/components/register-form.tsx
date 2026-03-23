@@ -18,6 +18,7 @@ export function RegisterForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +38,13 @@ export function RegisterForm() {
     const lastNameValue = String(fd.get("lastName") ?? "");
     const emailValue = String(fd.get("email") ?? "");
     const passwordValue = String(fd.get("password") ?? "");
+    const confirmPasswordValue = String(fd.get("confirmPassword") ?? "");
+
+    if (passwordValue !== confirmPasswordValue) {
+      setError(dict.auth.passwordsDoNotMatch);
+      setLoading(false);
+      return;
+    }
 
     const res = await signUpAction({
       firstName: firstNameValue,
@@ -102,6 +110,20 @@ export function RegisterForm() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+          autoComplete="new-password"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="confirmPassword">{dict.auth.confirmPassword}</Label>
+        <Input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
           required
           minLength={6}
           autoComplete="new-password"

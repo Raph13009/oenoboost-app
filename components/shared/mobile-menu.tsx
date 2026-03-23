@@ -18,6 +18,7 @@ import { signOutAction } from "@/features/auth/actions";
 
 const NAV_ITEMS: { key: keyof Dictionary["nav"]; href: string }[] = [
   { key: "vignoble", href: "/vignoble" },
+  { key: "cepages", href: "/cepages" },
 ];
 
 type MobileMenuProps = {

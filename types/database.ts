@@ -67,3 +67,34 @@ export type Appellation = {
   updated_at: string;
   deleted_at: string | null;
 };
+
+export type Grape = {
+  id: string;
+  slug: string;
+  name_fr: string;
+  name_en: string;
+  type: "red" | "white" | "rose";
+  origin_country: string | null;
+  origin_region_fr: string | null;
+  origin_region_en: string | null;
+  origin_latitude: number | null;
+  origin_longitude: number | null;
+  history_fr: string | null;
+  history_en: string | null;
+  crossings_fr: string | null;
+  crossings_en: string | null;
+  production_regions_fr: string | null;
+  production_regions_en: string | null;
+  viticultural_traits_fr: string | null;
+  viticultural_traits_en: string | null;
+  tasting_traits_fr: string | null;
+  tasting_traits_en: string | null;
+  emblematic_wines_fr: string | null;
+  emblematic_wines_en: string | null;
+  is_premium: boolean;
+  status: string;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};

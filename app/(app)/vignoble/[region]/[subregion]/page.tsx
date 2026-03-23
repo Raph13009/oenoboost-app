@@ -7,9 +7,12 @@ import { getAppellations } from "@/features/vignoble/queries/appellations.querie
 import { AppellationCard } from "@/features/vignoble/components/appellation-card";
 import { AppellationDetail } from "@/features/vignoble/components/appellation-detail";
 import { getAopDetailByRegionAndSlug } from "@/features/vignoble/queries/aop-navigation.queries";
+import { isAppellationFavorited } from "@/features/vignoble/queries/aop-favorites.queries";
+import { getFavoritedContentIds } from "@/features/favorites/queries/favorites.queries";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getContent } from "@/lib/i18n/get-content";
+import { getCurrentUser } from "@/lib/auth/session";
 
 type Props = {
   params: Promise<{ region: string; subregion: string }>;
@@ -37,6 +40,28 @@ export default async function RegionSubregionOrAopPage({
   if (subregion && subregion.region_id === region.id) {
     const appellations = await getAppellations(subregion.id);
     const subregionName = getContent(subregion, "name", locale);
+    const user = await getCurrentUser();
+    const favIds = user
+      ? await getFavoritedContentIds(user.id)
+      : { grapeIds: new Set<string>(), appellationIds: new Set<string>() };
+
+    const aopFavoriteLabels = {
+      favoriteAria: dict.vignoble.favoriteAddAria,
+      unfavoriteAria: dict.vignoble.favoriteRemoveAria,
+      addedToast: dict.vignoble.favoriteAddedToast,
+      removedToast: dict.vignoble.favoriteRemovedToast,
+      authModal: {
+        title: dict.vignoble.favoriteAuthTitle,
+        body: dict.vignoble.favoriteAuthBody,
+        login: dict.vignoble.favoriteAuthLogin,
+        register: dict.vignoble.favoriteAuthRegister,
+      },
+      premiumLimit: {
+        title: dict.favorites.premiumLimitTitle,
+        body: dict.favorites.premiumLimitBody,
+        acknowledge: dict.favorites.premiumLimitAck,
+      },
+    };
 
     return (
       <div className="flex flex-col gap-6">
@@ -70,6 +95,9 @@ export default async function RegionSubregionOrAopPage({
                 regionSlug={regionSlug}
                 subregionSlug={subregion.slug}
                 locale={locale}
+                initialFavorited={favIds.appellationIds.has(aop.id)}
+                isLoggedIn={!!user}
+                favoriteLabels={aopFavoriteLabels}
               />
             ))}
           </div>
@@ -80,8 +108,16 @@ export default async function RegionSubregionOrAopPage({
 
   const aop = await getAopDetailByRegionAndSlug(regionSlug, slug);
   if (!aop) notFound();
+
+  const user = await getCurrentUser();
+  const initialAopFavorited = user
+    ? await isAppellationFavorited(user.id, aop.appellation.id)
+    : false;
+
+  const isFromFavorites = qp.from === "favorites";
   const isFromList = qp.from === "list";
   const backHref = (() => {
+    if (isFromFavorites) return "/profil/favoris";
     if (isFromList) {
       const params = new URLSearchParams();
       if (qp.listRegion) params.set("region", qp.listRegion);
@@ -94,15 +130,19 @@ export default async function RegionSubregionOrAopPage({
     }
     return `/vignoble?region=${regionSlug}&subregion=${aop.subregion.slug}`;
   })();
-  const backLabel = isFromList
-    ? locale === "fr"
-      ? "Retour à la liste"
-      : "Back to list"
-    : dict.vignoble.backToMap;
+  const backLabel = (() => {
+    if (isFromFavorites) return dict.favorites.backToFavorites;
+    if (isFromList) {
+      return locale === "fr" ? "Retour à la liste" : "Back to list";
+    }
+    return dict.vignoble.backToMap;
+  })();
+
+  const showViewAllAopsCta = !isFromList || isFromFavorites;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href={backHref}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -110,7 +150,7 @@ export default async function RegionSubregionOrAopPage({
           <ArrowLeft className="h-4 w-4" />
           {backLabel}
         </Link>
-        {!isFromList && (
+        {showViewAllAopsCta && (
           <Link
             href="/vignoble/aop"
             className="inline-flex items-center justify-center rounded-full bg-wine px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-wine/90"
@@ -120,7 +160,35 @@ export default async function RegionSubregionOrAopPage({
         )}
       </div>
 
-      <AppellationDetail appellation={aop.appellation} locale={locale} />
+      <AppellationDetail
+        appellation={aop.appellation}
+        locale={locale}
+        favorite={{
+          appellationId: aop.appellation.id,
+          regionSlug: aop.region.slug,
+          subregionSlug: aop.subregion.slug,
+          aopSlug: aop.appellation.slug,
+          initialFavorited: initialAopFavorited,
+          isLoggedIn: !!user,
+        }}
+        favoriteLabels={{
+          favoriteAria: dict.vignoble.favoriteAddAria,
+          unfavoriteAria: dict.vignoble.favoriteRemoveAria,
+          addedToast: dict.vignoble.favoriteAddedToast,
+          removedToast: dict.vignoble.favoriteRemovedToast,
+          authModal: {
+            title: dict.vignoble.favoriteAuthTitle,
+            body: dict.vignoble.favoriteAuthBody,
+            login: dict.vignoble.favoriteAuthLogin,
+            register: dict.vignoble.favoriteAuthRegister,
+          },
+          premiumLimit: {
+            title: dict.favorites.premiumLimitTitle,
+            body: dict.favorites.premiumLimitBody,
+            acknowledge: dict.favorites.premiumLimitAck,
+          },
+        }}
+      />
     </div>
   );
 }

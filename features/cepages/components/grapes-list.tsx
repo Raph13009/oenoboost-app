@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { getContent } from "@/lib/i18n/get-content";
 import type { Locale } from "@/lib/i18n/config";
 import type { Grape } from "../types";
+import type { GrapeFavoriteLabels } from "./grape-favorite-button";
+import { GrapeFavoriteButton } from "./grape-favorite-button";
 
 function extractRegionTokens(input: string | null) {
   if (!input) return [];
@@ -26,15 +28,27 @@ type GrapesListProps = {
   labels: {
     searchPlaceholder: string;
     allRegions: string;
-    red: string;
-    white: string;
-    rose: string;
+  };
+  favoriteList: {
+    favoritedIds: string[];
+    isLoggedIn: boolean;
+    favoriteLabels: GrapeFavoriteLabels;
   };
 };
 
-export function GrapesList({ grapes, locale, labels }: GrapesListProps) {
+export function GrapesList({
+  grapes,
+  locale,
+  labels,
+  favoriteList,
+}: GrapesListProps) {
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("");
+
+  const favoritedSet = useMemo(
+    () => new Set(favoriteList.favoritedIds),
+    [favoriteList.favoritedIds],
+  );
 
   const regionOptions = useMemo(() => {
     const set = new Set<string>();
@@ -63,12 +77,6 @@ export function GrapesList({ grapes, locale, labels }: GrapesListProps) {
       return matchesSearch && matchesRegion;
     });
   }, [grapes, locale, region, search]);
-
-  const typeLabel = (type: Grape["type"]) => {
-    if (type === "red") return labels.red;
-    if (type === "white") return labels.white;
-    return labels.rose;
-  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -99,27 +107,36 @@ export function GrapesList({ grapes, locale, labels }: GrapesListProps) {
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((grape) => (
-            <Link
+            <div
               key={grape.id}
-              href={`/cepages/${grape.slug}`}
-              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-wine/20"
+              className="flex items-stretch overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-wine/20"
             >
-              <div className="flex items-center justify-between gap-3">
+              <Link
+                href={`/cepages/${grape.slug}`}
+                className="min-w-0 flex-1 p-4 transition-colors"
+              >
                 <h2 className="font-heading text-xl">
                   {getContent(grape, "name", locale)}
                 </h2>
-                <span className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground">
-                  {typeLabel(grape.type)}
-                </span>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {shortText(
+                    locale === "fr"
+                      ? grape.production_regions_fr
+                      : grape.production_regions_en,
+                  )}
+                </p>
+              </Link>
+              <div className="flex shrink-0 items-center border-l border-border/50 px-2">
+                <GrapeFavoriteButton
+                  grapeId={grape.id}
+                  grapeSlug={grape.slug}
+                  initialFavorited={favoritedSet.has(grape.id)}
+                  isLoggedIn={favoriteList.isLoggedIn}
+                  labels={favoriteList.favoriteLabels}
+                  size="sm"
+                />
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {shortText(
-                  locale === "fr"
-                    ? grape.production_regions_fr
-                    : grape.production_regions_en,
-                )}
-              </p>
-            </Link>
+            </div>
           ))}
         </div>
       )}

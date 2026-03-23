@@ -1,6 +1,7 @@
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Star } from "lucide-react";
 
-import { signOutAction } from "@/features/auth/actions";
+import { ProfileSettingsPanel } from "@/components/shared/profile-settings-panel";
 import { requireUser } from "@/lib/auth/session";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -18,6 +19,9 @@ export default async function ProfilePage() {
 
   const initials = getInitials(user.first_name, user.last_name);
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+
+  const deleteContactEmail =
+    process.env.NEXT_PUBLIC_ACCOUNT_DELETE_EMAIL ?? "support@oenoboost.com";
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,12 +76,37 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        <div className="mt-6">
-          <form action={signOutAction}>
-            <Button type="submit" variant="outline" className="w-full">
-              {dict.profile.logout}
-            </Button>
-          </form>
+        <div className="mt-6 flex flex-col gap-3">
+          <Link
+            href="/profil/favoris"
+            className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-muted hover:text-foreground"
+          >
+            <Star
+              className="h-4 w-4 shrink-0 fill-wine stroke-wine"
+              strokeWidth={1.6}
+            />
+            {dict.nav.myFavorites}
+          </Link>
+
+          <button
+            type="button"
+            disabled
+            className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-lg border border-border/50 bg-muted/30 px-2.5 text-sm font-medium text-muted-foreground opacity-70"
+          >
+            {dict.profile.subscription}
+          </button>
+
+          <ProfileSettingsPanel
+            deleteContactEmail={deleteContactEmail}
+            copy={{
+              settings: dict.profile.settings,
+              logout: dict.profile.logout,
+              deleteAccount: dict.profile.deleteAccount,
+              deleteDialogTitle: dict.profile.deleteAccountTitle,
+              deleteDialogBody: dict.profile.deleteAccountBody,
+              deleteDialogAck: dict.profile.deleteAccountAck,
+            }}
+          />
         </div>
       </div>
     </div>

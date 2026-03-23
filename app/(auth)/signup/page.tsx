@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { RegisterForm } from "@/features/auth/components/register-form";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -14,7 +15,9 @@ export default async function SignupPage() {
         </h1>
       </div>
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <RegisterForm />
+        <Suspense fallback={<div className="min-h-[320px]" aria-hidden />}>
+          <RegisterForm />
+        </Suspense>
       </div>
     </div>
   );

@@ -2,14 +2,28 @@ import type { Appellation } from "../types";
 import type { Locale } from "@/lib/i18n/config";
 import { getContent } from "@/lib/i18n/get-content";
 
+import type { AppellationFavoriteLabels } from "./appellation-favorite-button";
+import { AppellationFavoriteButton } from "./appellation-favorite-button";
+
 type AppellationDetailProps = {
   appellation: Appellation;
   locale: Locale;
+  favorite?: {
+    appellationId: string;
+    regionSlug: string;
+    subregionSlug: string;
+    aopSlug: string;
+    initialFavorited: boolean;
+    isLoggedIn: boolean;
+  };
+  favoriteLabels?: AppellationFavoriteLabels;
 };
 
 export function AppellationDetail({
   appellation,
   locale,
+  favorite,
+  favoriteLabels,
 }: AppellationDetailProps) {
   const name = getContent(appellation, "name", locale);
   const history = getContent(appellation, "history", locale);
@@ -33,9 +47,22 @@ export function AppellationDetail({
   return (
     <div className="flex flex-col gap-6 md:gap-8">
       <div className="rounded-2xl border border-border bg-card px-4 py-5 md:px-6">
-        <h1 className="font-heading text-3xl font-semibold text-wine md:text-4xl">
-          {locale === "fr" ? "AOP" : "AOP"} {name}
-        </h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="font-heading text-3xl font-semibold text-wine md:text-4xl">
+            {locale === "fr" ? "AOP" : "AOP"} {name}
+          </h1>
+          {favorite && favoriteLabels && (
+            <AppellationFavoriteButton
+              appellationId={favorite.appellationId}
+              regionSlug={favorite.regionSlug}
+              aopSlug={favorite.aopSlug}
+              subregionSlug={favorite.subregionSlug}
+              initialFavorited={favorite.initialFavorited}
+              isLoggedIn={favorite.isLoggedIn}
+              labels={favoriteLabels}
+            />
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">

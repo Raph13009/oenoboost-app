@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -17,7 +18,9 @@ export default async function LoginPage() {
         </h1>
       </div>
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <LoginForm />
+        <Suspense fallback={<div className="min-h-[240px]" aria-hidden />}>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   );

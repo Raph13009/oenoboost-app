@@ -68,6 +68,15 @@ export type Appellation = {
   deleted_at: string | null;
 };
 
+export type Favorite = {
+  id: string;
+  user_id: string;
+  content_type: string;
+  content_id: string;
+  module: string;
+  created_at: string;
+};
+
 export type Grape = {
   id: string;
   slug: string;
@@ -85,6 +94,8 @@ export type Grape = {
   crossings_en: string | null;
   production_regions_fr: string | null;
   production_regions_en: string | null;
+  /** English country names where the grape is grown (JSONB array). */
+  production_countries: string[] | null;
   viticultural_traits_fr: string | null;
   viticultural_traits_en: string | null;
   tasting_traits_fr: string | null;

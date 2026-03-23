@@ -4,6 +4,9 @@ import { getServerLocale } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getAopBrowseItems } from "@/features/vignoble/queries/aop-navigation.queries";
 import { AopFilters } from "@/features/vignoble/components/aop-filters";
+import { AopBrowseCard } from "@/features/vignoble/components/aop-browse-card";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getFavoritedContentIds } from "@/features/favorites/queries/favorites.queries";
 
 type Props = {
   searchParams?: Promise<{ region?: string; subregion?: string }>;
@@ -18,6 +21,29 @@ export default async function AopListPage({ searchParams }: Props) {
     regionId: qp.region,
     subregionId: qp.subregion,
   });
+
+  const user = await getCurrentUser();
+  const favIds = user
+    ? await getFavoritedContentIds(user.id)
+    : { grapeIds: new Set<string>(), appellationIds: new Set<string>() };
+
+  const aopFavoriteLabels = {
+    favoriteAria: dict.vignoble.favoriteAddAria,
+    unfavoriteAria: dict.vignoble.favoriteRemoveAria,
+    addedToast: dict.vignoble.favoriteAddedToast,
+    removedToast: dict.vignoble.favoriteRemovedToast,
+    authModal: {
+      title: dict.vignoble.favoriteAuthTitle,
+      body: dict.vignoble.favoriteAuthBody,
+      login: dict.vignoble.favoriteAuthLogin,
+      register: dict.vignoble.favoriteAuthRegister,
+    },
+    premiumLimit: {
+      title: dict.favorites.premiumLimitTitle,
+      body: dict.favorites.premiumLimitBody,
+      acknowledge: dict.favorites.premiumLimitAck,
+    },
+  };
 
   const availableSubregions = qp.region
     ? data.subregions.filter((s) => s.region_id === qp.region)
@@ -57,35 +83,26 @@ export default async function AopListPage({ searchParams }: Props) {
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {data.items.map((item) => (
-            (() => {
-              const params = new URLSearchParams({
-                from: "list",
-                subregion: item.subregion_slug,
-              });
-              if (qp.region) params.set("listRegion", qp.region);
-              if (qp.subregion) params.set("listSubregion", qp.subregion);
-              const href = `/vignoble/${item.region_slug}/${item.slug}?${params.toString()}`;
-              return (
-            <Link
-              key={item.id}
-              href={href}
-              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-wine/20"
-            >
-              <div className="font-heading text-base">
-                {locale === "fr" ? item.name_fr : item.name_en}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {locale === "fr" ? item.region_name_fr : item.region_name_en}
-                {" • "}
-                {locale === "fr"
-                  ? item.subregion_name_fr
-                  : item.subregion_name_en}
-              </div>
-            </Link>
-              );
-            })()
-          ))}
+          {data.items.map((item) => {
+            const params = new URLSearchParams({
+              from: "list",
+              subregion: item.subregion_slug,
+            });
+            if (qp.region) params.set("listRegion", qp.region);
+            if (qp.subregion) params.set("listSubregion", qp.subregion);
+            const href = `/vignoble/${item.region_slug}/${item.slug}?${params.toString()}`;
+            return (
+              <AopBrowseCard
+                key={item.id}
+                item={item}
+                locale={locale}
+                href={href}
+                initialFavorited={favIds.appellationIds.has(item.id)}
+                isLoggedIn={!!user}
+                favoriteLabels={aopFavoriteLabels}
+              />
+            );
+          })}
         </div>
       )}
     </div>

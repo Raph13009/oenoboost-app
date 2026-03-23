@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,22 @@ import { useLocale } from "@/lib/i18n/locale-context";
 import frDict from "@/lib/i18n/dictionaries/fr";
 import enDict from "@/lib/i18n/dictionaries/en";
 import { signInAction } from "@/features/auth/actions";
+import { getSafeRedirectPath } from "@/lib/auth/safe-redirect-path";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locale } = useLocale();
   const dict = locale === "en" ? enDict : frDict;
+
+  const afterAuthPath = useMemo(
+    () => getSafeRedirectPath(searchParams.get("next")),
+    [searchParams],
+  );
+  const signupHref = useMemo(() => {
+    if (!afterAuthPath) return "/signup";
+    return `/signup?next=${encodeURIComponent(afterAuthPath)}`;
+  }, [afterAuthPath]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,7 +54,7 @@ export function LoginForm() {
       return;
     }
 
-    router.push("/");
+    router.push(afterAuthPath ?? "/");
     router.refresh();
   }
 
@@ -85,7 +96,7 @@ export function LoginForm() {
 
       <p className="text-center text-sm text-muted-foreground">
         {dict.auth.noAccount}{" "}
-        <Link href="/signup" className="font-medium text-wine hover:underline">
+        <Link href={signupHref} className="font-medium text-wine hover:underline">
           {dict.auth.registerButton}
         </Link>
       </p>

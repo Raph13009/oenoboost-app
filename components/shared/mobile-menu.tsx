@@ -30,6 +30,7 @@ export function MobileMenu({ open, onOpenChange, user }: MobileMenuProps) {
   const pathname = usePathname();
   const { locale } = useLocale();
   const dict = locale === "en" ? enDict : frDict;
+  const isAopRoute = pathname.startsWith("/vignoble/aop");
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -42,7 +43,10 @@ export function MobileMenu({ open, onOpenChange, user }: MobileMenuProps) {
 
         <nav className="mt-6 flex flex-col gap-1 px-2">
           {NAV_ITEMS.map(({ key, href }) => {
-            const isActive = pathname.startsWith(href);
+            const isActive =
+              href === "/vignoble"
+                ? pathname.startsWith(href) && !isAopRoute
+                : pathname.startsWith(href);
             return (
               <Link
                 key={key}
@@ -58,6 +62,17 @@ export function MobileMenu({ open, onOpenChange, user }: MobileMenuProps) {
               </Link>
             );
           })}
+          <Link
+            href="/vignoble/aop"
+            onClick={() => onOpenChange(false)}
+            className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+              isAopRoute
+                ? "bg-accent text-wine"
+                : "text-foreground hover:bg-accent hover:text-wine"
+            }`}
+          >
+            AOP
+          </Link>
         </nav>
 
         <div className="mt-8 border-t border-border px-2 pt-5">

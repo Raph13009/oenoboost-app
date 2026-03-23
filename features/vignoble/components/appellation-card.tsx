@@ -21,7 +21,7 @@ export function AppellationCard({
 
   return (
     <Link
-      href={`/vignoble/${regionSlug}/${subregionSlug}/${appellation.slug}`}
+      href={`/vignoble/${regionSlug}/${appellation.slug}?subregion=${subregionSlug}`}
     >
       <div className="group flex items-center justify-between rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:border-wine/20 hover:shadow-sm">
         <div className="flex flex-col gap-1">

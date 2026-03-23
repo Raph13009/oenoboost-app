@@ -7,9 +7,14 @@ export const metadata = {
   title: "Vignoble — OenoBoost",
 };
 
-export default async function VignoblePage() {
+export default async function VignoblePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ region?: string; subregion?: string }>;
+}) {
   const locale = await getServerLocale();
   const dict = await getDictionary(locale);
+  const qp = (await searchParams) ?? {};
 
   const regions = await getRegions();
 
@@ -38,6 +43,8 @@ export default async function VignoblePage() {
           regions={mapRegions}
           heightClassName="h-full"
           locale={locale}
+          initialRegionSlug={qp.region}
+          initialSubregionSlug={qp.subregion}
           strings={{
             discover: dict.vignoble.discover,
             backToRegions: dict.vignoble.backToRegions,

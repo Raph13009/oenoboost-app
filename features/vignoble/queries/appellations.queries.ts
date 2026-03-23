@@ -8,24 +8,45 @@ export async function getAppellations(
   const includeDraft = process.env.NODE_ENV !== "production";
 
   let query = supabase
-    .from("appellations")
+    .from("appellation_subregion_links")
     .select(
-      "id, subregion_id, slug, name_fr, name_en, area_hectares, producer_count, production_volume_hl, is_premium, status, created_at, updated_at, deleted_at, published_at, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, centroid_lat, centroid_lng, geojson",
+      "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, area_hectares, producer_count, production_volume_hl, is_premium, status, created_at, updated_at, deleted_at, published_at, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, centroid_lat, centroid_lng, geojson)",
     )
-    .eq("subregion_id", subregionId)
-    .is("deleted_at", null);
+    .eq("subregion_id", subregionId);
 
   if (!includeDraft) {
-    query = query.or("status.eq.published,published_at.not.is.null");
+    query = query.or(
+      "appellation.status.eq.published,appellation.published_at.not.is.null",
+    );
   }
 
-  const { data, error } = await query.order("name_fr", {
-    ascending: true,
-  });
-
-  if (error)
+  const { data, error } = await query;
+  if (error) {
     throw new Error(`Failed to fetch appellations: ${error.message}`);
-  return (data ?? []) as Appellation[];
+  }
+
+  const rows = (data ?? []) as Array<{
+    subregion_id: string | null;
+    appellation:
+      | (Omit<Appellation, "subregion_id"> & { deleted_at: string | null })
+      | (Omit<Appellation, "subregion_id"> & { deleted_at: string | null })[]
+      | null;
+  }>;
+
+  const mapped = rows
+    .map((row) => {
+      const raw = row.appellation;
+      const a = Array.isArray(raw) ? raw[0] ?? null : raw;
+      if (!a || a.deleted_at) return null;
+      return {
+        ...a,
+        subregion_id: row.subregion_id ?? "",
+      } as Appellation;
+    })
+    .filter((r): r is Appellation => Boolean(r))
+    .sort((a, b) => a.name_fr.localeCompare(b.name_fr));
+
+  return mapped;
 }
 
 export async function getAppellationBySlug(
@@ -37,7 +58,7 @@ export async function getAppellationBySlug(
   let query = supabase
     .from("appellations")
     .select(
-      "id, subregion_id, slug, name_fr, name_en, area_hectares, producer_count, production_volume_hl, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, is_premium, status, created_at, updated_at, deleted_at, published_at, centroid_lat, centroid_lng, geojson",
+      "id, slug, name_fr, name_en, area_hectares, producer_count, production_volume_hl, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, is_premium, status, created_at, updated_at, deleted_at, published_at, centroid_lat, centroid_lng, geojson",
     )
     .eq("slug", slug)
     .is("deleted_at", null);
@@ -52,5 +73,11 @@ export async function getAppellationBySlug(
     if (error.code === "PGRST116") return null;
     throw new Error(`Failed to fetch appellation: ${error.message}`);
   }
-  return data as Appellation;
+
+  const a = data as Omit<Appellation, "subregion_id">;
+  return {
+    ...a,
+    // canonical relation is in appellation_subregion_links
+    subregion_id: "",
+  } as Appellation;
 }

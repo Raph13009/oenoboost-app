@@ -117,11 +117,15 @@ export function VignobleMap({
   regions,
   heightClassName = "h-full",
   locale,
+  initialRegionSlug,
+  initialSubregionSlug,
   strings,
 }: {
   regions: VignobleMapRegion[];
   heightClassName?: string;
   locale: "fr" | "en";
+  initialRegionSlug?: string;
+  initialSubregionSlug?: string;
   strings: {
     discover: string;
     backToRegions: string;
@@ -152,12 +156,22 @@ export function VignobleMap({
       properties: {
         subregion_id: string | null;
         name: string;
+        slug: string;
         show_label: boolean;
       };
       geometry: { type: "Point"; coordinates: [number, number] };
     }>
   >([]);
   const aopViewHandlerRef = useRef<(() => void) | null>(null);
+  const aopInteractionHandlersRef = useRef<{
+    onPinMove: ((e: any) => void) | null;
+    onPinLeave: (() => void) | null;
+    onPinClick: ((e: any) => void) | null;
+    onLabelMove: ((e: any) => void) | null;
+    onLabelLeave: (() => void) | null;
+    onLabelClick: ((e: any) => void) | null;
+  } | null>(null);
+  const aopPopupRef = useRef<any>(null);
   const aopVisibleRef = useRef(false);
   const subregionsModeRef = useRef(false);
   const subLayerHandlersRef = useRef<{
@@ -203,6 +217,8 @@ export function VignobleMap({
   const currentRegionSubregionsBoundsRef = useRef<
     [[number, number], [number, number]] | null
   >(null);
+  const initialFocusHandledRef = useRef(false);
+  const showSubregionsForRegionRef = useRef(showSubregionsForRegion);
 
   useEffect(() => {
     aopVisibleRef.current = aopVisible;
@@ -379,6 +395,20 @@ export function VignobleMap({
     if (!map || !subregionsMode) return;
 
     if (aopVisible) {
+      if (aopInteractionHandlersRef.current) {
+        const h = aopInteractionHandlersRef.current;
+        if (h.onPinMove) map.off("mousemove", aopLayerId, h.onPinMove);
+        if (h.onPinLeave) map.off("mouseleave", aopLayerId, h.onPinLeave);
+        if (h.onPinClick) map.off("click", aopLayerId, h.onPinClick);
+        if (h.onLabelMove) map.off("mousemove", aopLabelLayerId, h.onLabelMove);
+        if (h.onLabelLeave) map.off("mouseleave", aopLabelLayerId, h.onLabelLeave);
+        if (h.onLabelClick) map.off("click", aopLabelLayerId, h.onLabelClick);
+        aopInteractionHandlersRef.current = null;
+      }
+      if (aopPopupRef.current) {
+        aopPopupRef.current.remove();
+        aopPopupRef.current = null;
+      }
       if (aopViewHandlerRef.current) {
         map.off("moveend", aopViewHandlerRef.current);
         map.off("zoomend", aopViewHandlerRef.current);
@@ -406,6 +436,7 @@ export function VignobleMap({
             properties: {
               subregion_id: a.subregion_id,
               name: locale === "en" ? a.name_en : a.name_fr,
+              slug: a.slug,
               show_label: false,
             },
             geometry: {
@@ -502,6 +533,111 @@ export function VignobleMap({
       aopFeaturesRef.current = features;
       updateAopLabels();
 
+      const openAopPopup = async (feature: any) => {
+        const subregionId = feature?.properties?.subregion_id as string | null;
+        const coords = feature?.geometry?.coordinates as [number, number] | undefined;
+        if (!subregionId || !coords) return;
+        const sub = subregionRowsRef.current.find((s) => s.id === subregionId);
+        if (!sub || !selectedRegion) return;
+
+        const mapboxglMod: any = await import("mapbox-gl");
+        const mapboxgl = mapboxglMod.default ?? mapboxglMod;
+
+        if (aopPopupRef.current) {
+          aopPopupRef.current.remove();
+          aopPopupRef.current = null;
+        }
+
+        const aopName = String(feature?.properties?.name ?? "AOP");
+        const aopSlug = String(feature?.properties?.slug ?? "");
+        if (!aopSlug) return;
+        const targetUrl = `/vignoble/${selectedRegion.region_slug}/${aopSlug}?from=map&subregion=${sub.slug}`;
+        const popup = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: true,
+          offset: 10,
+          className: "vignoble-aop-popup",
+        })
+          .setLngLat(coords)
+          .setHTML(
+            `<div style="
+              min-width:200px;
+              background:#fffdec;
+              border:1px solid rgba(0,0,0,0.08);
+              border-radius:14px;
+              box-shadow:0 8px 22px rgba(0,0,0,0.08);
+              padding:12px 12px;
+              text-align:center;
+            ">
+              <div style="
+                font-family:'Times New Roman',serif;
+                font-size:16px;
+                letter-spacing:0.01em;
+                line-height:1.25;
+                color:#7c2736;
+                margin-bottom:10px;
+              ">${aopName}</div>
+              <a href="${targetUrl}" style="
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                min-width:108px;
+                padding:6px 12px;
+                border:1px solid rgba(124,39,54,0.25);
+                border-radius:10px;
+                background:rgba(124,39,54,0.06);
+                color:#7c2736;
+                text-decoration:none;
+                font-size:12px;
+                font-weight:500;
+                line-height:1;
+              ">
+                Voir l'AOP
+              </a>
+            </div>`,
+          )
+          .addTo(map);
+        aopPopupRef.current = popup;
+      };
+
+      const onPinMove = () => {
+        map.getCanvas().style.cursor = "pointer";
+      };
+      const onPinLeave = () => {
+        map.getCanvas().style.cursor = "";
+      };
+      const onLabelMove = () => {
+        map.getCanvas().style.cursor = "pointer";
+      };
+      const onLabelLeave = () => {
+        map.getCanvas().style.cursor = "";
+      };
+      const onPinClick = (e: any) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        void openAopPopup(f);
+      };
+      const onLabelClick = (e: any) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        void openAopPopup(f);
+      };
+
+      map.on("mousemove", aopLayerId, onPinMove);
+      map.on("mouseleave", aopLayerId, onPinLeave);
+      map.on("click", aopLayerId, onPinClick);
+      map.on("mousemove", aopLabelLayerId, onLabelMove);
+      map.on("mouseleave", aopLabelLayerId, onLabelLeave);
+      map.on("click", aopLabelLayerId, onLabelClick);
+      aopInteractionHandlersRef.current = {
+        onPinMove,
+        onPinLeave,
+        onPinClick,
+        onLabelMove,
+        onLabelLeave,
+        onLabelClick,
+      };
+
       if (aopViewHandlerRef.current) {
         map.off("moveend", aopViewHandlerRef.current);
         map.off("zoomend", aopViewHandlerRef.current);
@@ -523,7 +659,11 @@ export function VignobleMap({
     }
   }
 
-  async function showSubregionsForRegion(regionId: string, regionSlug: string) {
+  async function showSubregionsForRegion(
+    regionId: string,
+    regionSlug: string,
+    options?: { focusSubregionSlug?: string },
+  ) {
     const map = mapRef.current;
     if (!map) return;
 
@@ -603,6 +743,11 @@ export function VignobleMap({
           };
         })
         .filter((r): r is NonNullable<typeof r> => Boolean(r));
+
+      const focusSubregionIdFromSlug =
+        options?.focusSubregionSlug
+          ? rows.find((r) => r.slug === options.focusSubregionSlug)?.id ?? null
+          : null;
 
       map.addSource(subSourceId, {
         type: "geojson",
@@ -740,6 +885,9 @@ export function VignobleMap({
 
       map.setLayoutProperty(fillLayerId, "visibility", "none");
       setSubregionsMode(true);
+      if (focusSubregionIdFromSlug) {
+        focusSubregion(focusSubregionIdFromSlug);
+      }
     } finally {
       setSubregionsLoading(false);
     }
@@ -847,6 +995,20 @@ export function VignobleMap({
     }
     if (map.getSource(aopSourceId)) {
       map.removeSource(aopSourceId);
+    }
+    if (aopInteractionHandlersRef.current) {
+      const h = aopInteractionHandlersRef.current;
+      if (h.onPinMove) map.off("mousemove", aopLayerId, h.onPinMove);
+      if (h.onPinLeave) map.off("mouseleave", aopLayerId, h.onPinLeave);
+      if (h.onPinClick) map.off("click", aopLayerId, h.onPinClick);
+      if (h.onLabelMove) map.off("mousemove", aopLabelLayerId, h.onLabelMove);
+      if (h.onLabelLeave) map.off("mouseleave", aopLabelLayerId, h.onLabelLeave);
+      if (h.onLabelClick) map.off("click", aopLabelLayerId, h.onLabelClick);
+      aopInteractionHandlersRef.current = null;
+    }
+    if (aopPopupRef.current) {
+      aopPopupRef.current.remove();
+      aopPopupRef.current = null;
     }
     if (aopViewHandlerRef.current) {
       map.off("moveend", aopViewHandlerRef.current);
@@ -1052,6 +1214,25 @@ export function VignobleMap({
       // Map source might not be ready yet.
     }
   }, [geojson]);
+
+  useEffect(() => {
+    showSubregionsForRegionRef.current = showSubregionsForRegion;
+  });
+
+  useEffect(() => {
+    if (!ready) return;
+    if (initialFocusHandledRef.current) return;
+    if (!initialRegionSlug) return;
+
+    const region = regionBySlug.get(initialRegionSlug);
+    if (!region) return;
+    initialFocusHandledRef.current = true;
+    setSelectedRegionId(region.region_id);
+    setSheetOpen(false);
+    void showSubregionsForRegionRef.current(region.region_id, region.region_slug, {
+      focusSubregionSlug: initialSubregionSlug,
+    });
+  }, [ready, initialRegionSlug, initialSubregionSlug, regionBySlug]);
 
   return (
     <div className="flex h-full flex-col gap-2 overflow-hidden">

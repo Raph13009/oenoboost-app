@@ -109,3 +109,73 @@ export type Grape = {
   updated_at: string;
   deleted_at: string | null;
 };
+
+export type SoilType = {
+  id: string;
+  slug: string;
+  name_fr: string;
+  geological_origin_fr: string | null;
+  regions_fr: string | null;
+  mineral_composition_fr: string | null;
+  wine_influence_fr: string | null;
+  photo_url: string | null;
+  carousel_order: number | null;
+  is_premium: boolean;
+  status: string;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VinificationType = {
+  id: string;
+  slug: string;
+  name_fr: string;
+  name_en: string;
+  illustration_url: string | null;
+  carousel_order: number | null;
+  is_premium: boolean;
+  status: string;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type VinificationStep = {
+  id: string;
+  vinification_type_id: string;
+  step_order: number;
+  icon_url: string | null;
+  title_fr: string;
+  title_en: string;
+  summary_fr: string | null;
+  summary_en: string | null;
+  detail_fr: string | null;
+  detail_en: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DictionaryTerm = {
+  id: string;
+  slug: string;
+  term_fr: string;
+  term_en: string;
+  definition_fr: string;
+  definition_en: string;
+  examples_fr: string | null;
+  examples_en: string | null;
+  etymology_fr: string | null;
+  etymology_en: string | null;
+  /** Module slugs, e.g. `["vinification","sols"]` */
+  related_modules: string[] | null;
+  is_word_of_day: boolean;
+  is_premium: boolean;
+  free_order: number | null;
+  status: string;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};

@@ -3,6 +3,8 @@ import { ArrowLeft } from "lucide-react";
 
 import { FavoriteGrapesList } from "@/features/cepages/components/favorite-grapes-list";
 import { getFavoriteGrapesForUser } from "@/features/cepages/queries/favorites.queries";
+import { FavoriteSoilsList } from "@/features/sols/components/favorite-soils-list";
+import { getFavoriteSoilsForUser } from "@/features/sols/queries/soil-favorites.queries";
 import { FavoriteAppellationsList } from "@/features/vignoble/components/favorite-appellations-list";
 import { getFavoriteAppellationsForUser } from "@/features/vignoble/queries/aop-favorites.queries";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -14,9 +16,10 @@ export default async function FavorisPage() {
   const locale = await getServerLocale();
   const dict = await getDictionary(locale);
 
-  const [grapeRows, aopRows] = await Promise.all([
+  const [grapeRows, aopRows, soilRows] = await Promise.all([
     getFavoriteGrapesForUser(user.id),
     getFavoriteAppellationsForUser(user.id),
+    getFavoriteSoilsForUser(user.id),
   ]);
 
   return (
@@ -72,6 +75,26 @@ export default async function FavorisPage() {
             <FavoriteAppellationsList
               initialItems={aopRows}
               locale={locale}
+              labels={{
+                removeAria: dict.favorites.removeAria,
+              }}
+            />
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4 md:p-6">
+        <h2 className="font-heading text-xl font-semibold">
+          {dict.favorites.soilSection}
+        </h2>
+        <div className="mt-4">
+          {soilRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {dict.favorites.emptySoils}
+            </p>
+          ) : (
+            <FavoriteSoilsList
+              initialItems={soilRows}
               labels={{
                 removeAria: dict.favorites.removeAria,
               }}

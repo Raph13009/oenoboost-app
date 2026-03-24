@@ -13,6 +13,10 @@ import { getServerLocale } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getContent } from "@/lib/i18n/get-content";
 import { getCurrentUser } from "@/lib/auth/session";
+import {
+  getRelatedSoilsForAppellation,
+  getSoilBySlug,
+} from "@/features/sols/queries/soils.queries";
 
 type Props = {
   params: Promise<{ region: string; subregion: string }>;
@@ -21,6 +25,7 @@ type Props = {
     subregion?: string;
     listRegion?: string;
     listSubregion?: string;
+    soilSlug?: string;
   }>;
 };
 
@@ -113,9 +118,16 @@ export default async function RegionSubregionOrAopPage({
   const initialAopFavorited = user
     ? await isAppellationFavorited(user.id, aop.appellation.id)
     : false;
+  const relatedSoils = await getRelatedSoilsForAppellation(aop.appellation.id);
 
   const isFromFavorites = qp.from === "favorites";
   const isFromList = qp.from === "list";
+  const isFromSoil = qp.from === "soil" && Boolean(qp.soilSlug);
+
+  const soilForBack =
+    isFromSoil && qp.soilSlug ? await getSoilBySlug(qp.soilSlug) : null;
+  const soilBackDisplayName = soilForBack?.name_fr ?? qp.soilSlug ?? "";
+
   const backHref = (() => {
     if (isFromFavorites) return "/profil/favoris";
     if (isFromList) {
@@ -124,6 +136,9 @@ export default async function RegionSubregionOrAopPage({
       if (qp.listSubregion) params.set("subregion", qp.listSubregion);
       const q = params.toString();
       return q ? `/vignoble/aop?${q}` : "/vignoble/aop";
+    }
+    if (isFromSoil && qp.soilSlug) {
+      return `/sols/${encodeURIComponent(qp.soilSlug)}`;
     }
     if (qp.from === "map" && qp.subregion) {
       return `/vignoble?region=${regionSlug}&subregion=${qp.subregion}`;
@@ -135,10 +150,14 @@ export default async function RegionSubregionOrAopPage({
     if (isFromList) {
       return locale === "fr" ? "Retour à la liste" : "Back to list";
     }
+    if (isFromSoil && soilBackDisplayName) {
+      return dict.vignoble.backToSoilNamed.replace("{name}", soilBackDisplayName);
+    }
     return dict.vignoble.backToMap;
   })();
 
-  const showViewAllAopsCta = !isFromList || isFromFavorites;
+  const showViewAllAopsCta =
+    (!isFromList || isFromFavorites) && !isFromSoil;
 
   return (
     <div className="flex flex-col gap-6">
@@ -187,6 +206,11 @@ export default async function RegionSubregionOrAopPage({
             body: dict.favorites.premiumLimitBody,
             acknowledge: dict.favorites.premiumLimitAck,
           },
+        }}
+        relatedSoils={relatedSoils}
+        soilLabels={{
+          relatedSoils: dict.sols.relatedSoils,
+          emptyRelatedSoils: dict.sols.noRelatedSoils,
         }}
       />
     </div>

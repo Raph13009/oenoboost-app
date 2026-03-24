@@ -1,6 +1,8 @@
+import Link from "next/link";
 import type { Appellation } from "../types";
 import type { Locale } from "@/lib/i18n/config";
 import { getContent } from "@/lib/i18n/get-content";
+import type { RelatedSoil } from "@/features/sols/types";
 
 import type { AppellationFavoriteLabels } from "./appellation-favorite-button";
 import { AppellationFavoriteButton } from "./appellation-favorite-button";
@@ -17,6 +19,11 @@ type AppellationDetailProps = {
     isLoggedIn: boolean;
   };
   favoriteLabels?: AppellationFavoriteLabels;
+  relatedSoils?: RelatedSoil[];
+  soilLabels?: {
+    relatedSoils: string;
+    emptyRelatedSoils: string;
+  };
 };
 
 export function AppellationDetail({
@@ -24,6 +31,8 @@ export function AppellationDetail({
   locale,
   favorite,
   favoriteLabels,
+  relatedSoils = [],
+  soilLabels,
 }: AppellationDetailProps) {
   const name = getContent(appellation, "name", locale);
   const history = getContent(appellation, "history", locale);
@@ -131,6 +140,30 @@ export function AppellationDetail({
           <p className="mt-3 whitespace-pre-line leading-relaxed text-foreground/85">
             {soils || na}
           </p>
+          {soilLabels && (
+            <div className="mt-5 flex flex-col gap-3">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                {soilLabels.relatedSoils}
+              </p>
+              {relatedSoils.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {soilLabels.emptyRelatedSoils}
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2.5">
+                  {relatedSoils.map((soil) => (
+                    <Link
+                      key={soil.id}
+                      href={`/sols/${soil.slug}`}
+                      className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-sm transition-colors hover:border-wine/20 hover:bg-accent hover:text-wine"
+                    >
+                      {soil.name_fr}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       </div>
     </div>

@@ -33,9 +33,12 @@ export default async function RootLayout({
       lang={locale}
       className={`${playfair.variable} ${tenorSans.variable}`}
     >
-      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
+      <body className="flex min-h-screen flex-col bg-background font-sans text-foreground antialiased">
         <Header />
-        <main className="mx-auto w-full max-w-[1200px] px-6 pb-16 pt-8 md:px-12">
+        <main
+          id="app-main"
+          className="mx-auto flex min-h-0 w-full max-w-[1200px] flex-1 flex-col overflow-y-auto px-6 pb-16 pt-8 md:px-12"
+        >
           {children}
         </main>
       </body>

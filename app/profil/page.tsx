@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { History, Star } from "lucide-react";
 
 import { ProfileSettingsPanel } from "@/components/shared/profile-settings-panel";
 import { requireUser } from "@/lib/auth/session";
@@ -86,6 +86,14 @@ export default async function ProfilePage() {
               strokeWidth={1.6}
             />
             {dict.nav.myFavorites}
+          </Link>
+
+          <Link
+            href="/degustation/history"
+            className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-muted hover:text-foreground"
+          >
+            <History className="h-4 w-4 shrink-0 text-wine" strokeWidth={1.6} />
+            {dict.tastingHistory.title}
           </Link>
 
           <button

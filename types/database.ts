@@ -179,3 +179,37 @@ export type DictionaryTerm = {
   updated_at: string;
   deleted_at: string | null;
 };
+
+/** Ligne `tasting_sheets` (schéma aligné migrations). */
+export type TastingSheet = {
+  id: string;
+  user_id: string;
+  eye_color: string | null;
+  eye_robe: string | null;
+  eye_intensity: string | null;
+  eye_tears: string | null;
+  eye_notes: string | null;
+  nose_first_nose: string | null;
+  nose_second_nose: string | null;
+  nose_aroma_families: string[] | null;
+  nose_intensity: string | null;
+  nose_notes: string | null;
+  mouth_attack: string | null;
+  mouth_mid: string | null;
+  mouth_finish: string | null;
+  mouth_acidity: number | null;
+  mouth_tannins: number | null;
+  mouth_alcohol: number | null;
+  mouth_sugar: number | null;
+  mouth_length_caudalie: number | null;
+  mouth_notes: string | null;
+  wine_name: string | null;
+  vintage: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TastingSheetInsert = Omit<
+  TastingSheet,
+  "id" | "user_id" | "created_at" | "updated_at"
+>;

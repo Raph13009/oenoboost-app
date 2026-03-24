@@ -14,7 +14,7 @@ export function HeaderClient({ user }: { user: CurrentUser | null }) {
   return (
     <LocaleProvider>
       <>
-        <header className="sticky top-0 z-40 border-b border-border bg-cream/80 backdrop-blur-sm">
+        <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-cream/80 backdrop-blur-sm">
           <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-6 md:px-12">
             <Link
               href="/"

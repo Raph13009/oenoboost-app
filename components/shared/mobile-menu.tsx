@@ -22,6 +22,7 @@ const NAV_ITEMS: { key: keyof Dictionary["nav"]; href: string }[] = [
   { key: "sols", href: "/sols" },
   { key: "vinification", href: "/vinification" },
   { key: "dictionnaire", href: "/dictionnaire" },
+  { key: "degustation", href: "/degustation" },
 ];
 
 type MobileMenuProps = {

@@ -1,0 +1,18 @@
+ALTER TABLE public.users
+ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0;
+
+UPDATE public.users
+SET
+  xp = COALESCE(xp, 0),
+  level = CASE
+    WHEN COALESCE(xp, 0) >= 650 THEN '10'
+    WHEN COALESCE(xp, 0) >= 500 THEN '9'
+    WHEN COALESCE(xp, 0) >= 380 THEN '8'
+    WHEN COALESCE(xp, 0) >= 280 THEN '7'
+    WHEN COALESCE(xp, 0) >= 200 THEN '6'
+    WHEN COALESCE(xp, 0) >= 140 THEN '5'
+    WHEN COALESCE(xp, 0) >= 90 THEN '4'
+    WHEN COALESCE(xp, 0) >= 50 THEN '3'
+    WHEN COALESCE(xp, 0) >= 20 THEN '2'
+    ELSE '1'
+  END;

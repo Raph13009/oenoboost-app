@@ -157,6 +157,86 @@ export type VinificationStep = {
   updated_at: string;
 };
 
+export type QuizType = "beginner" | "intermediate" | "expert";
+export type QuizOptionKey = "a" | "b" | "c" | "d";
+
+export type Quiz = {
+  id: string;
+  type: QuizType;
+  theme: string | null;
+  title_fr: string;
+  title_en: string;
+  description_fr: string | null;
+  description_en: string | null;
+  question_count: number | null;
+  duration_sec: number | null;
+  is_premium: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuizQuestion = {
+  id: string;
+  type: QuizType;
+  theme: string | null;
+  question_fr: string;
+  question_en: string;
+  option_a_fr: string;
+  option_a_en: string;
+  option_b_fr: string;
+  option_b_en: string;
+  option_c_fr: string;
+  option_c_en: string;
+  option_d_fr: string;
+  option_d_en: string;
+  correct_option: QuizOptionKey;
+  explanation_fr: string | null;
+  explanation_en: string | null;
+  related_module: string | null;
+  scheduled_date: string | null;
+  is_premium: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  difficulty: string | null;
+};
+
+export type QuizQuestionLink = {
+  quiz_id: string;
+  question_id: string;
+  position: number;
+};
+
+export type QuizSession = {
+  id: string;
+  user_id: string;
+  quiz_type: QuizType;
+  quiz_id: string;
+  total: number;
+  score: number | null;
+  score_pct: number | null;
+  completed_at: string | null;
+  xp_awarded: boolean;
+  created_at: string;
+};
+
+export type QuizSessionInsert = Omit<
+  QuizSession,
+  "id" | "score" | "score_pct" | "completed_at" | "xp_awarded" | "created_at"
+>;
+
+export type QuizAnswer = {
+  id: string;
+  session_id: string;
+  question_id: string;
+  selected_option: QuizOptionKey;
+  is_correct: boolean;
+  answered_at: string;
+};
+
+export type QuizAnswerInsert = Omit<QuizAnswer, "id">;
+
 export type DictionaryTerm = {
   id: string;
   slug: string;

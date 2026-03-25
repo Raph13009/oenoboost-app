@@ -90,6 +90,10 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body {
+    height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -186,4 +190,15 @@ body.vinification-scroll-lock {
 /* Verrouillage dégustation sur <main> pour ne pas masquer le header global (logo + menu). */
 main#app-main.degustation-scroll-lock {
   overflow-y: hidden;
+}
+
+html.quiz-scroll-lock,
+body.quiz-scroll-lock,
+main#app-main.quiz-scroll-lock {
+  overflow: hidden;
+}
+
+html.quiz-scroll-lock,
+body.quiz-scroll-lock {
+  overscroll-behavior: none;
 }

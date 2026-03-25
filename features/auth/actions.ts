@@ -100,7 +100,8 @@ export async function signUpAction(params: {
       avatar_url: null,
       role: "user",
       plan: "free",
-      level: "beginner",
+      level: "0",
+      xp: 0,
       is_verified: true,
       locale: "fr",
     });

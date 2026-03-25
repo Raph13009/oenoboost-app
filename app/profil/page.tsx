@@ -2,6 +2,7 @@ import Link from "next/link";
 import { History, Star } from "lucide-react";
 
 import { ProfileSettingsPanel } from "@/components/shared/profile-settings-panel";
+import { getLevelProgress } from "@/features/gamification/levels";
 import { requireUser } from "@/lib/auth/session";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -19,6 +20,7 @@ export default async function ProfilePage() {
 
   const initials = getInitials(user.first_name, user.last_name);
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+  const progression = getLevelProgress(user.xp);
 
   const deleteContactEmail =
     process.env.NEXT_PUBLIC_ACCOUNT_DELETE_EMAIL ?? "support@oenoboost.com";
@@ -70,8 +72,48 @@ export default async function ProfilePage() {
                 <span className="font-medium text-foreground">
                   {dict.profile.level}
                 </span>
-                <div className="text-muted-foreground">{user.level}</div>
+                <div className="text-muted-foreground">
+                  {dict.profile.levelLabel.replace("{level}", String(progression.level))}
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 border-t border-border/50 pt-6">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">
+              {dict.profile.progression}
+            </p>
+            <div className="font-heading text-3xl font-semibold text-wine">
+              {dict.profile.levelLabel.replace("{level}", String(progression.level))}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {progression.isMaxLevel
+                ? dict.profile.maxLevelXp.replace(
+                    "{xp}",
+                    String(progression.currentXp),
+                  )
+                : dict.profile.currentXp
+                    .replace("{xp}", String(progression.currentXp))
+                    .replace("{next}", String(progression.nextLevelMinXp))}
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-wine transition-[width] duration-500 ease-out"
+                style={{ width: `${progression.progressPct}%` }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              <span>{progression.currentLevelMinXp} XP</span>
+              <span>
+                {progression.isMaxLevel
+                  ? dict.profile.max
+                  : `${progression.nextLevelMinXp} XP`}
+              </span>
             </div>
           </div>
         </div>

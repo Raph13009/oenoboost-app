@@ -13,6 +13,7 @@ export type CurrentUser = {
   role: string;
   plan: string;
   level: string;
+  xp: number;
   locale: Locale;
 };
 
@@ -46,7 +47,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const { data, error } = await admin
     .from("users")
     .select(
-      "id, email, first_name, last_name, avatar_url, role, plan, level, is_verified, locale",
+      "id, email, first_name, last_name, avatar_url, role, plan, level, xp, is_verified, locale",
     )
     .eq("id", authUser.id)
     .is("deleted_at", null)
@@ -62,7 +63,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       avatar_url: null,
       role: "user",
       plan: "free",
-      level: "beginner",
+      level: "0",
+      xp: 0,
       locale: "fr",
     };
   }
@@ -76,6 +78,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     role: data.role,
     plan: data.plan,
     level: data.level,
+    xp: typeof data.xp === "number" ? data.xp : 0,
     locale: (data.locale as Locale) || "fr",
   };
 }

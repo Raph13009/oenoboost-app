@@ -52,7 +52,7 @@
 }
 
 :root {
-  --background: #FFFDEC;
+  --background: #eae0d5;
   --foreground: #000000;
   --card: #FFFFFF;
   --card-foreground: #000000;
@@ -62,13 +62,13 @@
   --primary-foreground: #FFFFFF;
   --secondary: #FFFDEC;
   --secondary-foreground: #7C2736;
-  --muted: rgba(0, 0, 0, 0.05);
-  --muted-foreground: rgba(0, 0, 0, 0.5);
-  --accent: rgba(124, 39, 54, 0.08);
+  --muted: rgba(95, 66, 42, 0.08);
+  --muted-foreground: rgba(56, 36, 22, 0.62);
+  --accent: rgba(124, 39, 54, 0.1);
   --accent-foreground: #7C2736;
   --destructive: #dc2626;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: rgba(0, 0, 0, 0.1);
+  --border: rgba(95, 66, 42, 0.12);
+  --input: rgba(95, 66, 42, 0.12);
   --ring: #7C2736;
   --chart-1: #7C2736;
   --chart-2: #a13d4f;
@@ -93,9 +93,11 @@
   html,
   body {
     height: 100%;
+    overflow-x: hidden;
   }
   body {
     @apply bg-background text-foreground;
+    background-color: var(--background);
   }
   html {
     @apply font-sans;
@@ -106,6 +108,11 @@
 }
 
 @layer utilities {
+  .quiz-fab {
+    animation: quiz-fab-pulse 4.6s ease-in-out infinite;
+    backdrop-filter: blur(14px);
+  }
+
   .degust-float {
     animation: degust-float 4s ease-in-out infinite;
   }
@@ -122,6 +129,16 @@
   }
   50% {
     transform: translateY(-8px);
+  }
+}
+
+@keyframes quiz-fab-pulse {
+  0%,
+  100% {
+    box-shadow: 0 16px 36px rgba(124, 39, 54, 0.24);
+  }
+  50% {
+    box-shadow: 0 20px 42px rgba(124, 39, 54, 0.3);
   }
 }
 

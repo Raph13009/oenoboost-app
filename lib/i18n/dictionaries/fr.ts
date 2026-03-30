@@ -372,6 +372,11 @@ const fr = {
     subtitle:
       "Explorez les vignobles de France, découvrez les cépages, les sols et l&apos;art de la vinification.",
     cta: "Explorer le Vignoble",
+    dailyQuestionTitle: "Question du jour",
+    dailyAnswerCta: "Répondre",
+    vignobleMapSubtitle: "Explorer la carte des vignobles",
+    dailyTrueLabel: "Vrai",
+    dailyFalseLabel: "Faux",
   },
   common: {
     loading: "Chargement...",

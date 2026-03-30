@@ -373,6 +373,11 @@ const en: Dictionary = {
     subtitle:
       "Explore French vineyards, discover grapes, soils, and the art of winemaking.",
     cta: "Explore the Vignoble",
+    dailyQuestionTitle: "Daily question",
+    dailyAnswerCta: "Answer",
+    vignobleMapSubtitle: "Explore the vineyard map",
+    dailyTrueLabel: "True",
+    dailyFalseLabel: "False",
   },
   common: {
     loading: "Loading...",

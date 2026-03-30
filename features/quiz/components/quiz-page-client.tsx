@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { RotateCcw, X } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -65,6 +65,7 @@ type QuizPageCopy = {
 type Props = {
   catalog: QuizCatalogSummary[];
   copy: QuizPageCopy;
+  initialQuizType?: QuizType;
 };
 
 type QuizFeedbackState = {
@@ -114,7 +115,7 @@ function formatLastPlayed(lastCompletedAt: string | null, copy: QuizPageCopy): s
   }
 }
 
-export function QuizPageClient({ catalog, copy }: Props) {
+export function QuizPageClient({ catalog, copy, initialQuizType }: Props) {
   const [quiz, setQuiz] = useState<ActiveQuizState | null>(null);
   const [result, setResult] = useState<{
     quizType: QuizType;
@@ -130,6 +131,23 @@ export function QuizPageClient({ catalog, copy }: Props) {
     () => new Map(catalog.map((item) => [item.type, item])),
     [catalog],
   );
+
+  const didAutoStartRef = useRef(false);
+  useEffect(() => {
+    if (!initialQuizType) return;
+    if (didAutoStartRef.current) return;
+
+    const meta = catalogByType.get(initialQuizType);
+    const canStart =
+      Boolean(meta?.available && (meta?.remainingCount ?? 0) > 0) &&
+      quiz == null &&
+      result == null;
+
+    if (!canStart) return;
+    didAutoStartRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    startQuiz(initialQuizType);
+  }, [initialQuizType, catalogByType, quiz, result]);
 
   const currentQuestion =
     quiz != null ? quiz.questions[quiz.currentIndex] ?? null : null;

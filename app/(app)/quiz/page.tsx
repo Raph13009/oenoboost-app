@@ -3,6 +3,7 @@ import { getQuizCatalogSummariesForUser } from "@/features/quiz/queries/quiz.que
 import { requireUser } from "@/lib/auth/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getServerLocale } from "@/lib/i18n/server";
+import { QUIZ_TYPES } from "@/features/quiz/constants";
 
 export async function generateMetadata() {
   const locale = await getServerLocale();
@@ -14,16 +15,27 @@ export async function generateMetadata() {
   };
 }
 
-export default async function QuizPage() {
+export default async function QuizPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ type?: string }>;
+}) {
   const user = await requireUser();
 
   const locale = await getServerLocale();
   const dict = await getDictionary(locale);
   const catalog = await getQuizCatalogSummariesForUser(user.id);
 
+  const qp = (await searchParams) ?? {};
+  const maybeType = qp.type;
+  const initialQuizType = maybeType && (QUIZ_TYPES as string[]).includes(maybeType)
+    ? (maybeType as (typeof QUIZ_TYPES)[number])
+    : undefined;
+
   return (
     <QuizPageClient
       catalog={catalog}
+      initialQuizType={initialQuizType}
       copy={{
         title: dict.quiz.title,
         subtitle: dict.quiz.subtitle,

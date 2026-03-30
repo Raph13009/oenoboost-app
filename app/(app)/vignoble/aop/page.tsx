@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getFavoritedContentIds } from "@/features/favorites/queries/favorites.queries";
 
 type Props = {
-  searchParams?: Promise<{ region?: string; subregion?: string }>;
+  searchParams?: Promise<{ region?: string; subregion?: string; from?: string }>;
 };
 
 export default async function AopListPage({ searchParams }: Props) {
@@ -48,21 +48,20 @@ export default async function AopListPage({ searchParams }: Props) {
   const availableSubregions = qp.region
     ? data.subregions.filter((s) => s.region_id === qp.region)
     : data.subregions;
+  const backHref = qp.from === "home" ? "/" : "/vignoble";
+  const backLabel = qp.from === "home" ? dict.common.back : dict.vignoble.backToRegions;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
+      <div>
         <Link
-          href="/vignoble"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"
+          href={backHref}
+          className="mt-3 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"
         >
           <ArrowLeft className="h-4 w-4" />
-          {dict.vignoble.backToRegions}
+          {backLabel}
         </Link>
-      </div>
-
-      <div>
-        <h1 className="font-heading text-3xl font-semibold md:text-4xl">
+        <h1 className="mt-3 font-heading text-3xl font-semibold md:text-4xl">
           {dict.vignoble.allAops}
         </h1>
       </div>

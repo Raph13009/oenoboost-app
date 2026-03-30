@@ -37,7 +37,7 @@ export default async function RootLayout({
         <Header />
         <main
           id="app-main"
-          className="mx-auto flex min-h-0 w-full max-w-[1200px] flex-1 flex-col overflow-y-auto px-6 pb-16 pt-8 md:px-12"
+          className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pb-8"
         >
           {children}
         </main>

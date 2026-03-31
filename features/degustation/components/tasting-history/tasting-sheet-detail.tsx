@@ -126,7 +126,7 @@ export function TastingSheetDetail({ sheet, h, flow, locale }: Props) {
         href="/degustation/history"
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
-          "-ml-2 w-fit gap-1 text-muted-foreground hover:text-foreground",
+          "mt-4 -ml-2 w-fit gap-1 text-muted-foreground hover:text-foreground",
         )}
       >
         <ArrowLeft className="h-4 w-4" />

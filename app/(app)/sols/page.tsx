@@ -21,7 +21,7 @@ export default async function SoilsPage() {
         className={
           soils.length > 0
             ? "flex min-h-0 flex-col gap-8 md:gap-12"
-            : "flex h-[calc(100vh-3.5rem-2rem-1rem)] min-h-0 flex-col gap-8"
+            : "flex min-h-[calc(100dvh-3.5rem)] flex-col gap-8 md:min-h-0"
         }
       >
       <header className="flex shrink-0 flex-col gap-2 md:gap-3">
@@ -33,8 +33,8 @@ export default async function SoilsPage() {
         </p>
       </header>
 
-      {soils.length === 0 ? (
-        <p className="flex min-h-0 flex-1 items-center justify-center text-center text-muted-foreground">
+        {soils.length === 0 ? (
+        <p className="flex min-h-[16rem] items-center justify-center text-center text-muted-foreground">
           {dict.common.empty}
         </p>
       ) : (

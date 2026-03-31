@@ -70,16 +70,16 @@ export default async function RegionSubregionOrAopPage({
 
     return (
       <div className="flex flex-col gap-6">
-        <div>
+        <div className="mt-4">
           <Link
             href={`/vignoble/${regionSlug}`}
-            className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"
           >
             <ArrowLeft className="h-4 w-4" />
             {dict.vignoble.backToSubregions}
           </Link>
 
-          <h1 className="font-heading text-3xl font-semibold md:text-4xl">
+          <h1 className="mt-3 font-heading text-3xl font-semibold md:text-4xl">
             {subregionName}
           </h1>
           <p className="mt-2 text-muted-foreground">
@@ -161,7 +161,7 @@ export default async function RegionSubregionOrAopPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href={backHref}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

@@ -35,7 +35,7 @@ export default async function GrapeDetailPage({ params, searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href={backHref}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"

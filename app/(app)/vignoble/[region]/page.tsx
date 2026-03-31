@@ -25,16 +25,16 @@ export default async function RegionPage({ params }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="mt-4">
         <Link
           href="/vignoble"
-          className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"
         >
           <ArrowLeft className="h-4 w-4" />
           {dict.vignoble.backToRegions}
         </Link>
 
-        <h1 className="font-heading text-3xl font-semibold md:text-4xl">
+        <h1 className="mt-3 font-heading text-3xl font-semibold md:text-4xl">
           {regionName}
         </h1>
         <p className="mt-2 text-muted-foreground">{dict.vignoble.subregions}</p>

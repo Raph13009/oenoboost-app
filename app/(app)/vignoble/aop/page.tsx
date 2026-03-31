@@ -53,10 +53,10 @@ export default async function AopListPage({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="mt-4">
         <Link
           href={backHref}
-          className="mt-3 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-wine"
         >
           <ArrowLeft className="h-4 w-4" />
           {backLabel}

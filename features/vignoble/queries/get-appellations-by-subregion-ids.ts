@@ -67,7 +67,8 @@ export async function getAppellationsBySubregionIds(
 
   if (!includeDraft) {
     linksQuery = linksQuery.or(
-      "appellation.status.eq.published,appellation.published_at.not.is.null",
+      "status.eq.published,published_at.not.is.null",
+      { referencedTable: "appellation" },
     );
   }
 
@@ -98,4 +99,3 @@ export async function getAppellationsBySubregionIds(
 
   return rows;
 }
-

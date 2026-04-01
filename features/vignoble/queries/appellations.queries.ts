@@ -16,7 +16,8 @@ export async function getAppellations(
 
   if (!includeDraft) {
     query = query.or(
-      "appellation.status.eq.published,appellation.published_at.not.is.null",
+      "status.eq.published,published_at.not.is.null",
+      { referencedTable: "appellation" },
     );
   }
 

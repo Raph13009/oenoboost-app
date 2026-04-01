@@ -8,6 +8,7 @@ export type MapAppellation = {
   name_en: string;
   centroid_lat: number | null;
   centroid_lng: number | null;
+  geojson: unknown | null;
 };
 
 type LinkAppellationRow = {
@@ -20,6 +21,7 @@ type LinkAppellationRow = {
         name_en: string;
         centroid_lat: number | null;
         centroid_lng: number | null;
+        geojson: unknown | null;
         deleted_at: string | null;
         status: string | null;
         published_at: string | null;
@@ -31,6 +33,7 @@ type LinkAppellationRow = {
         name_en: string;
         centroid_lat: number | null;
         centroid_lng: number | null;
+        geojson: unknown | null;
         deleted_at: string | null;
         status: string | null;
         published_at: string | null;
@@ -45,6 +48,7 @@ type AppellationLinkAppellation = {
     name_en: string;
     centroid_lat: number | null;
     centroid_lng: number | null;
+    geojson: unknown | null;
     deleted_at: string | null;
     status: string | null;
     published_at: string | null;
@@ -61,7 +65,7 @@ export async function getAppellationsBySubregionIds(
   let linksQuery = supabase
     .from("appellation_subregion_links")
     .select(
-      "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, centroid_lat, centroid_lng, deleted_at, status, published_at)",
+      "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, centroid_lat, centroid_lng, geojson, deleted_at, status, published_at)",
     )
     .in("subregion_id", subregionIds);
 
@@ -77,8 +81,8 @@ export async function getAppellationsBySubregionIds(
     throw new Error(`Failed to fetch appellations for map: ${linksError.message}`);
   }
 
-  const rows = ((linksData ?? []) as LinkAppellationRow[])
-    .map((row) => {
+  const rows: MapAppellation[] = ((linksData ?? []) as LinkAppellationRow[])
+    .map((row): MapAppellation | null => {
       const raw = row.appellation;
       const a: AppellationLinkAppellation | null = Array.isArray(raw)
         ? raw[0] ?? null
@@ -93,9 +97,10 @@ export async function getAppellationsBySubregionIds(
         name_en: a.name_en,
         centroid_lat: a.centroid_lat ?? null,
         centroid_lng: a.centroid_lng ?? null,
+        geojson: a.geojson ?? null,
       } satisfies MapAppellation;
     })
-    .filter((r): r is MapAppellation => Boolean(r));
+    .filter((r): r is MapAppellation => r !== null);
 
   return rows;
 }

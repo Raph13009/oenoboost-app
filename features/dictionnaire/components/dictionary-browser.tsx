@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ export function DictionaryBrowser({
 }: Props) {
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
+  const [isListOpen, setIsListOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(
     () => terms[0]?.id ?? null,
   );
@@ -143,6 +144,14 @@ export function DictionaryBrowser({
   );
 
   const canRead = (t: DictionaryTerm) => !t.is_premium || userPremium;
+  const listToggleLabel =
+    locale === "en"
+      ? isListOpen
+        ? "Hide term list"
+        : "Browse term list"
+      : isListOpen
+        ? "Masquer la liste"
+        : "Ouvrir la liste";
 
   if (terms.length === 0) {
     return (
@@ -177,71 +186,100 @@ export function DictionaryBrowser({
           />
         </div>
 
-        <div className="overflow-y-auto rounded-xl border border-border/50 bg-card/40 md:min-h-0 md:flex-1">
-          {filtered.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">
-              {labels.noSearchResults}
-            </p>
+        <button
+          type="button"
+          onClick={() => setIsListOpen((open) => !open)}
+          className="inline-flex w-full items-center justify-between rounded-2xl border border-border/60 bg-card/70 px-4 py-3 text-left text-sm font-medium text-foreground shadow-[0_8px_20px_rgba(0,0,0,0.04)] transition-colors hover:bg-card"
+          aria-controls="dictionary-term-panel"
+          aria-expanded={isListOpen}
+        >
+          <span>{listToggleLabel}</span>
+          {isListOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <>
-              <ul className="divide-y divide-border/40 py-1">
-                {grouped.letters.map((letter) => (
-                  <li
-                    key={letter}
-                    id={sectionDomId(letter)}
-                    className="scroll-mt-24"
-                  >
-                    <div className="bg-muted/30 px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {letter}
-                    </div>
-                    <ul>
-                      {grouped.map.get(letter)?.map((t) => {
-                        const isActive = t.id === effectiveSelectedId;
-                        return (
-                          <li key={t.id}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedId(t.id)}
-                              className={cn(
-                                "flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] transition-colors",
-                                isActive
-                                  ? "bg-wine/10 text-foreground"
-                                  : "text-foreground/90 hover:bg-muted/50",
-                              )}
-                            >
-                              <span className="min-w-0 flex-1 truncate font-sans">
-                                {getContent(t, "term", locale)}
-                              </span>
-                              {t.is_word_of_day ? (
-                                <span className="shrink-0 rounded-full border border-wine/25 bg-wine/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-wine">
-                                  {labels.wordOfDayBadge}
-                                </span>
-                              ) : null}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-              {canShowMore ? (
-                <div className="border-t border-border/40 p-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setVisibleCount((c) => c + LIST_PAGE_SIZE)
-                    }
-                    className="w-full rounded-lg border border-border/70 bg-card py-2.5 text-center text-sm font-medium text-wine transition-colors hover:border-wine/30 hover:bg-muted/40"
-                  >
-                    {labels.showMore}
-                  </button>
-                </div>
-              ) : null}
-            </>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
-        </div>
+        </button>
 
+        <div
+          id="dictionary-term-panel"
+          className={cn(
+            "min-h-0 overflow-hidden transition-all duration-200 ease-out",
+            isListOpen ? "max-h-[70vh] opacity-100" : "max-h-0 opacity-0",
+          )}
+        >
+          <div className="flex min-h-0 flex-col gap-4">
+            <div className="overflow-y-auto rounded-xl border border-border/50 bg-card/40 md:min-h-0 md:flex-1">
+              {filtered.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">
+                  {labels.noSearchResults}
+                </p>
+              ) : (
+                <>
+                  <ul className="divide-y divide-border/40 py-1">
+                    {grouped.letters.map((letter) => (
+                      <li
+                        key={letter}
+                        id={sectionDomId(letter)}
+                        className="scroll-mt-24"
+                      >
+                        <div className="bg-muted/30 px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {letter}
+                        </div>
+                        <ul>
+                          {grouped.map.get(letter)?.map((t) => {
+                            const isActive = t.id === effectiveSelectedId;
+                            return (
+                              <li key={t.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedId(t.id);
+                                    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+                                      setIsListOpen(false);
+                                    }
+                                  }}
+                                  className={cn(
+                                    "flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] transition-colors",
+                                    isActive
+                                      ? "bg-wine/10 text-foreground"
+                                      : "text-foreground/90 hover:bg-muted/50",
+                                  )}
+                                >
+                                  <span className="min-w-0 flex-1 truncate font-sans">
+                                    {getContent(t, "term", locale)}
+                                  </span>
+                                  {t.is_word_of_day ? (
+                                    <span className="shrink-0 rounded-full border border-wine/25 bg-wine/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-wine">
+                                      {labels.wordOfDayBadge}
+                                    </span>
+                                  ) : null}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                  {canShowMore ? (
+                    <div className="border-t border-border/40 p-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleCount((c) => c + LIST_PAGE_SIZE)
+                        }
+                        className="w-full rounded-lg border border-border/70 bg-card py-2.5 text-center text-sm font-medium text-wine transition-colors hover:border-wine/30 hover:bg-muted/40"
+                      >
+                        {labels.showMore}
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </aside>
 
       <section

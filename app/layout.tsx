@@ -37,7 +37,7 @@ export default async function RootLayout({
         <Header />
         <main
           id="app-main"
-          className="w-full px-6 pb-8 lg:px-8"
+          className="w-full px-6 pt-5 pb-8 lg:px-8"
         >
           {children}
         </main>

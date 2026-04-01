@@ -30,8 +30,8 @@ export default async function DegustationPage() {
       )}
     >
       <div className="flex shrink-0 flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-        <header className="flex flex-col gap-2 text-center sm:max-w-xl sm:text-left sm:gap-3">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+        <header className="flex flex-col gap-2 sm:max-w-xl sm:gap-3">
+          <h1 className="font-heading text-3xl font-semibold text-wine md:text-4xl">
             {d.title}
           </h1>
           <p className="text-[14px] leading-snug text-neutral-600 sm:text-[15px] sm:leading-relaxed md:text-base dark:text-neutral-400">

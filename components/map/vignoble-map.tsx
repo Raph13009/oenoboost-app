@@ -102,6 +102,31 @@ function normalizeToMultiPolygon(geojson: any): GeoJSON.MultiPolygon | null {
   return null;
 }
 
+function getGeometryPointFallback(
+  geojson: any,
+): [number, number] | null {
+  const g = geojson?.type === "Feature" ? geojson.geometry : geojson;
+  if (!g || typeof g !== "object") return null;
+
+  if (g.type === "Point") {
+    const [lng, lat] = g.coordinates ?? [];
+    if (Number.isFinite(lng) && Number.isFinite(lat)) {
+      return [lng, lat];
+    }
+    return null;
+  }
+
+  const normalized = normalizeToMultiPolygon(g);
+  if (!normalized) return null;
+  const bounds = computeMultiPolygonBounds(normalized);
+  if (!bounds) return null;
+
+  const [[minLng, minLat], [maxLng, maxLat]] = bounds;
+  const lng = (minLng + maxLng) / 2;
+  const lat = (minLat + maxLat) / 2;
+  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+}
+
 type RegionFeature = {
   type: "Feature";
   id: string;
@@ -427,9 +452,16 @@ export function VignobleMap({
       const rows = await getAppellationsBySubregionIds(currentSubregionIdsRef.current);
       const features = rows
         .map((a) => {
-          if (a.centroid_lng === null || a.centroid_lat === null) return null;
-          if (!Number.isFinite(a.centroid_lng) || !Number.isFinite(a.centroid_lat))
-            return null;
+          const coordinates =
+            a.centroid_lng !== null &&
+            a.centroid_lat !== null &&
+            Number.isFinite(a.centroid_lng) &&
+            Number.isFinite(a.centroid_lat)
+              ? ([a.centroid_lng, a.centroid_lat] as [number, number])
+              : getGeometryPointFallback(a.geojson);
+
+          if (!coordinates) return null;
+
           return {
             type: "Feature" as const,
             id: a.id,
@@ -441,7 +473,7 @@ export function VignobleMap({
             },
             geometry: {
               type: "Point" as const,
-              coordinates: [a.centroid_lng, a.centroid_lat] as [number, number],
+              coordinates,
             },
           };
         })

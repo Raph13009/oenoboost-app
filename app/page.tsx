@@ -213,6 +213,7 @@ export default async function HomePage() {
                 {dict.home.dailyQuestionTitle}
               </p>
               <DailyQuestionCta
+                href="/quiz/daily"
                 isLoggedIn={!!user}
                 label={dict.home.dailyAnswerCta}
                 authCopy={dailyQuestionAuthCopy}

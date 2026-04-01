@@ -48,6 +48,10 @@ const CONTRAST_SUBREGION_COLORS = [
   "#ff8fab", // rose
 ];
 
+const shouldDebugAopMap =
+  process.env.NODE_ENV === "development" ||
+  process.env.NEXT_PUBLIC_DEBUG_AOP_MAP === "1";
+
 function normalizeHexColor(input: string | null | undefined): string | null {
   if (!input) return null;
   const trimmed = input.trim();
@@ -125,6 +129,132 @@ function getGeometryPointFallback(
   const lng = (minLng + maxLng) / 2;
   const lat = (minLat + maxLat) / 2;
   return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+}
+
+function getSubregionSyntheticPoint(
+  subregionId: string | null,
+  missingIndex: number,
+  subregions: Array<{
+    id: string;
+    geojson: GeoJSON.MultiPolygon;
+  }>,
+): [number, number] | null {
+  if (!subregionId) return null;
+
+  const subregion = subregions.find((item) => item.id === subregionId);
+  if (!subregion) return null;
+
+  const bounds = computeMultiPolygonBounds(subregion.geojson);
+  if (!bounds) return null;
+
+  const [[minLng, minLat], [maxLng, maxLat]] = bounds;
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
+
+  const lngSpan = Math.max(maxLng - minLng, 0.01);
+  const latSpan = Math.max(maxLat - minLat, 0.01);
+  const radiusLng = Math.min(lngSpan * 0.18, 0.08);
+  const radiusLat = Math.min(latSpan * 0.18, 0.06);
+
+  if (missingIndex === 0) {
+    return [centerLng, centerLat];
+  }
+
+  const ringIndex = Math.floor((missingIndex - 1) / 6) + 1;
+  const slotIndex = (missingIndex - 1) % 6;
+  const angle = (slotIndex / 6) * Math.PI * 2;
+  const lng = centerLng + Math.cos(angle) * radiusLng * ringIndex;
+  const lat = centerLat + Math.sin(angle) * radiusLat * ringIndex;
+
+  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+}
+
+function getRegionSyntheticPoint(
+  regionGeojson: any,
+  missingIndex: number,
+): [number, number] | null {
+  const normalized = normalizeToMultiPolygon(regionGeojson);
+  if (!normalized) return null;
+
+  const bounds = computeMultiPolygonBounds(normalized);
+  if (!bounds) return null;
+
+  const [[minLng, minLat], [maxLng, maxLat]] = bounds;
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
+
+  const lngSpan = Math.max(maxLng - minLng, 0.02);
+  const latSpan = Math.max(maxLat - minLat, 0.02);
+  const radiusLng = Math.min(lngSpan * 0.22, 0.18);
+  const radiusLat = Math.min(latSpan * 0.22, 0.12);
+
+  if (missingIndex === 0) {
+    return [centerLng, centerLat];
+  }
+
+  const ringIndex = Math.floor((missingIndex - 1) / 8) + 1;
+  const slotIndex = (missingIndex - 1) % 8;
+  const angle = (slotIndex / 8) * Math.PI * 2;
+  const lng = centerLng + Math.cos(angle) * radiusLng * ringIndex;
+  const lat = centerLat + Math.sin(angle) * radiusLat * ringIndex;
+
+  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+}
+
+function spreadOverlappingAopFeatures(
+  features: Array<{
+    type: "Feature";
+    id: string;
+    properties: {
+      subregion_id: string | null;
+      name: string;
+      slug: string;
+      show_label: boolean;
+    };
+    geometry: { type: "Point"; coordinates: [number, number] };
+  }>,
+) {
+  const groups = new Map<string, typeof features>();
+
+  for (const feature of features) {
+    const [lng, lat] = feature.geometry.coordinates;
+    const key = `${lng.toFixed(6)}:${lat.toFixed(6)}`;
+    const group = groups.get(key);
+    if (group) {
+      group.push(feature);
+    } else {
+      groups.set(key, [feature]);
+    }
+  }
+
+  const adjusted = features.map((feature) => ({ ...feature }));
+  const byId = new Map(adjusted.map((feature) => [feature.id, feature]));
+
+  for (const group of groups.values()) {
+    if (group.length <= 1) continue;
+
+    const [baseLng, baseLat] = group[0].geometry.coordinates;
+    const radiusLng = 0.018;
+    const radiusLat = 0.012;
+
+    group
+      .slice()
+      .sort((a, b) => a.properties.slug.localeCompare(b.properties.slug))
+      .forEach((feature, index, sortedGroup) => {
+        const angle = (index / sortedGroup.length) * Math.PI * 2;
+        const target = byId.get(feature.id);
+        if (!target) return;
+        target.geometry = {
+          type: "Point",
+          coordinates: [
+            baseLng + Math.cos(angle) * radiusLng,
+            baseLat + Math.sin(angle) * radiusLat,
+          ],
+        };
+      });
+  }
+
+  return adjusted;
 }
 
 type RegionFeature = {
@@ -450,17 +580,89 @@ export function VignobleMap({
     setAopLoading(true);
     try {
       const rows = await getAppellationsBySubregionIds(currentSubregionIdsRef.current);
+      if (shouldDebugAopMap) {
+        console.info("[aop-map][render] rows from query", {
+          count: rows.length,
+          items: rows.map((row) => ({
+            id: row.id,
+            slug: row.slug,
+            subregion_id: row.subregion_id,
+            centroid_lat: row.centroid_lat,
+            centroid_lng: row.centroid_lng,
+            has_geojson: Boolean(row.geojson),
+          })),
+        });
+      }
+
+      const missingPointCountBySubregion = new Map<string, number>();
+      let regionSyntheticCount = 0;
       const features = rows
         .map((a) => {
-          const coordinates =
+          const hasStoredCentroid =
             a.centroid_lng !== null &&
             a.centroid_lat !== null &&
             Number.isFinite(a.centroid_lng) &&
-            Number.isFinite(a.centroid_lat)
+            Number.isFinite(a.centroid_lat);
+          const geojsonFallback = getGeometryPointFallback(a.geojson);
+          const syntheticIndex = a.subregion_id
+            ? (missingPointCountBySubregion.get(a.subregion_id) ?? 0)
+            : 0;
+          const subregionSyntheticPoint = getSubregionSyntheticPoint(
+            a.subregion_id,
+            syntheticIndex,
+            subregionRowsRef.current,
+          );
+          const regionSyntheticPoint = getRegionSyntheticPoint(
+            selectedRegion?.geojson,
+            regionSyntheticCount,
+          );
+          const coordinates =
+            hasStoredCentroid
               ? ([a.centroid_lng, a.centroid_lat] as [number, number])
-              : getGeometryPointFallback(a.geojson);
+              : geojsonFallback ??
+                subregionSyntheticPoint ??
+                regionSyntheticPoint ??
+                (map
+                  ? ([map.getCenter().lng, map.getCenter().lat] as [number, number])
+                  : null);
 
-          if (!coordinates) return null;
+          if (!hasStoredCentroid && a.subregion_id) {
+            missingPointCountBySubregion.set(a.subregion_id, syntheticIndex + 1);
+          }
+          if (!hasStoredCentroid && !geojsonFallback && !subregionSyntheticPoint) {
+            regionSyntheticCount += 1;
+          }
+
+          if (!coordinates) {
+            if (shouldDebugAopMap) {
+              console.warn("[aop-map][render] skipped appellation without usable point", {
+                id: a.id,
+                slug: a.slug,
+                subregion_id: a.subregion_id,
+                centroid_lat: a.centroid_lat,
+                centroid_lng: a.centroid_lng,
+                has_geojson: Boolean(a.geojson),
+              });
+            }
+            return null;
+          }
+
+          if (shouldDebugAopMap && !hasStoredCentroid) {
+            console.info("[aop-map][render] using fallback point", {
+              id: a.id,
+              slug: a.slug,
+              subregion_id: a.subregion_id,
+              coordinates,
+              fallback:
+                geojsonFallback !== null
+                  ? "geojson"
+                  : subregionSyntheticPoint !== null
+                    ? "subregion-synthetic"
+                    : regionSyntheticPoint !== null
+                      ? "region-synthetic"
+                      : "map-center",
+            });
+          }
 
           return {
             type: "Feature" as const,
@@ -479,6 +681,20 @@ export function VignobleMap({
         })
         .filter((f): f is NonNullable<typeof f> => Boolean(f));
 
+      const resolvedFeatures = spreadOverlappingAopFeatures(features);
+
+      if (shouldDebugAopMap) {
+        console.info("[aop-map][render] final features", {
+          count: resolvedFeatures.length,
+          items: resolvedFeatures.map((feature) => ({
+            id: feature.id,
+            slug: feature.properties.slug,
+            subregion_id: feature.properties.subregion_id,
+            coordinates: feature.geometry.coordinates,
+          })),
+        });
+      }
+
       if (map.getLayer(aopLayerId)) map.removeLayer(aopLayerId);
       if (map.getLayer(aopLabelLayerId)) map.removeLayer(aopLabelLayerId);
       if (map.getSource(aopSourceId)) map.removeSource(aopSourceId);
@@ -487,7 +703,7 @@ export function VignobleMap({
         type: "geojson",
         data: {
           type: "FeatureCollection",
-          features,
+          features: resolvedFeatures,
         },
       });
 
@@ -562,7 +778,7 @@ export function VignobleMap({
         });
       };
 
-      aopFeaturesRef.current = features;
+      aopFeaturesRef.current = resolvedFeatures;
       updateAopLabels();
 
       const openAopPopup = async (feature: any) => {

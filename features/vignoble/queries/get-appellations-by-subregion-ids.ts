@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/client";
 
+const shouldDebugAopMap =
+  process.env.NODE_ENV === "development" ||
+  process.env.NEXT_PUBLIC_DEBUG_AOP_MAP === "1";
+
 export type MapAppellation = {
   id: string;
   subregion_id: string | null;
@@ -81,14 +85,36 @@ export async function getAppellationsBySubregionIds(
     throw new Error(`Failed to fetch appellations for map: ${linksError.message}`);
   }
 
+  if (shouldDebugAopMap) {
+    console.info("[aop-map][query] fetched links", {
+      requestedSubregionIds: subregionIds,
+      count: linksData?.length ?? 0,
+      sample: (linksData ?? []).slice(0, 10),
+    });
+  }
+
   const rows: MapAppellation[] = ((linksData ?? []) as LinkAppellationRow[])
     .map((row): MapAppellation | null => {
       const raw = row.appellation;
       const a: AppellationLinkAppellation | null = Array.isArray(raw)
         ? raw[0] ?? null
         : raw;
-      if (!a) return null;
-      if (a.deleted_at) return null;
+      if (!a) {
+        if (shouldDebugAopMap) {
+          console.warn("[aop-map][query] skipped row without appellation", row);
+        }
+        return null;
+      }
+      if (a.deleted_at) {
+        if (shouldDebugAopMap) {
+          console.warn("[aop-map][query] skipped deleted appellation", {
+            id: a.id,
+            slug: a.slug,
+            deleted_at: a.deleted_at,
+          });
+        }
+        return null;
+      }
       return {
         id: a.id,
         subregion_id: row.subregion_id ?? null,
@@ -101,6 +127,20 @@ export async function getAppellationsBySubregionIds(
       } satisfies MapAppellation;
     })
     .filter((r): r is MapAppellation => r !== null);
+
+  if (shouldDebugAopMap) {
+    console.info("[aop-map][query] mapped appellations", {
+      count: rows.length,
+      items: rows.map((row) => ({
+        id: row.id,
+        slug: row.slug,
+        subregion_id: row.subregion_id,
+        centroid_lat: row.centroid_lat,
+        centroid_lng: row.centroid_lng,
+        has_geojson: Boolean(row.geojson),
+      })),
+    });
+  }
 
   return rows;
 }

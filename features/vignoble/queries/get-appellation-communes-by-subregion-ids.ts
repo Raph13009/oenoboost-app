@@ -60,7 +60,6 @@ export async function getAppellationCommunesBySubregionIds(
   if (subregionIds.length === 0) return [];
 
   const supabase = createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
   let linksQuery = supabase
     .from("appellation_subregion_links")
@@ -68,12 +67,6 @@ export async function getAppellationCommunesBySubregionIds(
       "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, deleted_at, status, published_at)",
     )
     .in("subregion_id", subregionIds);
-
-  if (!includeDraft) {
-    linksQuery = linksQuery.or("status.eq.published,published_at.not.is.null", {
-      referencedTable: "appellation",
-    });
-  }
 
   const { data: linksData, error: linksError } = await linksQuery;
   if (linksError) {

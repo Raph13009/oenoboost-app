@@ -46,7 +46,6 @@ export async function getAppellationsBySubregionIds(
   if (subregionIds.length === 0) return [];
 
   const supabase = createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
   const includeGeojson = options?.includeGeojson === true;
 
   const subregionChunks = chunkArray(subregionIds, 8);
@@ -96,10 +95,6 @@ export async function getAppellationsBySubregionIds(
       .select(selectClause)
       .in("id", chunk)
       .is("deleted_at", null);
-
-    if (!includeDraft) {
-      query = query.or("status.eq.published,published_at.not.is.null");
-    }
 
     const { data, error } = await query;
     if (error) {

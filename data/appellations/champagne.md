@@ -1,0 +1,327 @@
+# Champagne
+
+## Champagne — Grand Cru
+- Ambonnay
+- Avize
+- Aÿ-Champagne
+- Beaumont-sur-Vesle
+- Bouzy
+- Chouilly
+- Cramant
+- Louvois
+- Mailly-Champagne
+- Le Mesnil-sur-Oger
+- Oger
+- Oiry
+- Puisieulx
+- Sillery
+- Tours-sur-Marne
+- Verzenay
+- Verzy
+
+## Champagne — Premier Cru
+- Avenay-Val-d'Or
+- Bergères-lès-Vertus
+- Bezannes
+- Billy-le-Grand
+- Bisseuil
+- Chamery
+- Champillon
+- Chigny-lès-Roses
+- Coligny (Val-des-Marais)
+- Cormontreuil
+- Coulommes-la-Montagne
+- Cuis
+- Cumières
+- Dizy
+- Ecueil
+- Etrechy
+- Grauves
+- Hautvillers
+- Jouy-lès-Reims
+- Ludes
+- Mareuil-sur-Aÿ
+- Les Mesneux
+- Montbré
+- Mutigny
+- Pargny-lès-Reims
+- Pierry
+- Rilly-la-Montagne
+- Sacy
+- Sermiers
+- Taissy
+- Tauxières-Mutry
+- Trépail
+- Trois-Puits
+- Vaudemanges
+- Vertus
+- Villedommange
+- Villeneuve-Renneville-Chevigny
+- Villers-Allerand
+- Villers-aux-Nœuds
+- Villers-Marmery
+- Voipreux
+- Vrigny
+
+## Champagne — Montagne de Reims (autres communes)
+- Aÿ-Champagne
+- Baslieux-sous-Châtillon
+- Belval-sous-Châtillon
+- Binson-et-Orquigny
+- Bouilly
+- Brouillet
+- Cerseuil
+- Châtillon-sur-Marne
+- Chenay
+- Cormoyeux
+- Coulommes-la-Montagne
+- Cuisles
+- Dammery
+- Dormans
+- Éparcy
+- Épernay
+- Fleury-la-Rivière
+- Fontaine-sur-Aÿ
+- Germigny
+- Gueux
+- Janvry
+- Jonchery-sur-Vesle
+- Lagery
+- Lhéry
+- Marfaux
+- Méry-Prémecy
+- Muizon
+- Nanteuil-la-Forêt
+- Olizy-Violaine
+- Passy-Grigny
+- Pévy
+- Pierry
+- Pourcy
+- Prouilly
+- Reims
+- Reuil
+- Saint-Euphraise-et-Clairizet
+- Saint-Gilles
+- Sarcy
+- Savigny-sur-Ardres
+- Serzy-et-Prin
+- Soilly
+- Tramery
+- Vandières
+- Ventelay
+- Verneuil
+- Vincelles
+- Ville-en-Tardenois
+- Villers-Franqueux
+- Vraux
+
+## Champagne — Vallée de la Marne (Marne)
+- Baulne-en-Brie
+- Beaunay
+- Boursault
+- Breuil
+- Cerseuil
+- Châtillon-sur-Marne
+- Chaumuzy
+- Courthiezy
+- Crézancy-en-Sancerre
+- Damery
+- Dormans
+- Épernay
+- Essômes-sur-Marne
+- Festigny
+- Fleury-la-Rivière
+- Leuvrigny
+- Lhéry
+- Mareuil-le-Port
+- Mézy-Moulins
+- Mont-Saint-Père
+- Nesle-le-Repons
+- Oeuilly
+- Passy-sur-Marne
+- Reuil
+- Sainte-Gemme
+- Saint-Agnan
+- Trelou-sur-Marne
+- Vandières
+- Verneuil
+- Vincelles
+- Vinay
+- Voisenon
+
+## Champagne — Vallée de la Marne (Aisne)
+- Barzy-sur-Marne
+- Baulne-en-Brie
+- Chartèves
+- Château-Thierry
+- Chierry
+- Connigis
+- Courtemont-Varennes
+- Crouttes-sur-Marne
+- Fossoy
+- Gland
+- Jaulgonne
+- Mézy-Moulins
+- Monthurel
+- Nesles-la-Montagne
+- Nogentel
+- Œuilly
+- Passy-sur-Marne
+- Préaux
+- Saint-Agnan
+- Trelou-sur-Marne
+- Verdilly
+- Villiers-Saint-Denis
+
+## Champagne — Vallée de la Marne (Seine-et-Marne)
+- Citry
+- La Celle-sous-Chantemerie
+- Nanteuil-sur-Marne
+- Saâcy-sur-Marne
+- Saint-Ouen-sur-Morin
+- Sammeron
+
+## Champagne — Côte des Blancs
+- Bréban
+- Coizard-Joches
+- Courjeonnet
+- Écury-le-Repos
+- Fèrebrianges
+- Givry-lès-Loisy
+- Joches
+- Neuvy
+- Orbais-l'Abbaye
+- Reuves
+- Saint-Quentin-le-Verger
+- Val des Marais
+- Vandières
+- Villeneuve-Renneville-Chevigny
+
+## Champagne — Côte du Sézannais
+- Barbonne-Fayel
+- Bethon
+- Broussy-le-Grand
+- Cellois
+- Chantemerle
+- Charleville
+- Côte-Pouilly
+- Ecury-sur-Coole
+- Epernay
+- Esternay
+- Fontaine-Denis-Nuisy
+- Joisy
+- La Chapelle-Lasson
+- Le Mériot
+- Libercourt
+- Montgenost
+- Ognes
+- Saudoy
+- Sézanne
+- Talus-Saint-Prix
+- Tréfols
+- Val des Marais
+- Vindey
+- Vouarces
+
+## Champagne — Vitryat
+- Aulnay-aux-Planches
+- Bassuet
+- Bignicourt-sur-Marne
+- Bignicourt-sur-Saulx
+- Blacy
+- Charleville-Mézières
+- Courdemanges
+- Écriennes
+- Frignicourt
+- Glannes
+- Heiltz-le-Maurupt
+- Jussecourt-Minecourt
+- Loisy-en-Brie
+- Pargny-lès-Reims (partie)
+- Sarry
+- Scrupt
+- Thibie
+- Togny-aux-Bœufs
+- Villers-aux-Corneilles
+- Vitry-le-François
+
+## Champagne — Côte des Bar (Bar-sur-Aube)
+- Arconville
+- Arsonval
+- Baroville
+- Bar-sur-Aube
+- Bergères
+- Bligny
+- Colombé-la-Fosse
+- Colombé-le-Sec
+- Cully
+- Cunfin
+- Dolancourt
+- Épagne
+- Essoyes
+- Fontaines
+- Fulligny
+- Gye-sur-Seine
+- Jaucourt
+- Landreville
+- Lignol-le-Château
+- Loches-sur-Ource
+- Maisons-lès-Chaource
+- Merrey-sur-Arce
+- Montier-en-l'Isle
+- Mussy-sur-Seine
+- Noé-les-Mallets
+- Polisy
+- Proverville
+- Rouvres-les-Vignes
+- Rizaucourt-Buchey
+- Saint-Germain
+- Saulcy
+- Urville
+- Ville-sur-Arce
+- Vitry-le-Croisé
+
+## Champagne — Côte des Bar (Bar-sur-Seine)
+- Avirey-Lingey
+- Balnot-la-Grange
+- Balnot-sur-Laignes
+- Bar-sur-Seine
+- Bertignolles
+- Bièvres
+- Bragelogne-Beauvoir
+- Buxeuil
+- Cerrey-la-Tour
+- Chaource
+- Chapelle-Vallon
+- Coussegrey
+- Cully
+- Gy-l'Évêque
+- Landreville
+- Lhuitre
+- Les Riceys
+- Lignières
+- Loches-sur-Ource
+- Merrey-sur-Arce
+- Mussy-sur-Seine
+- Noé-les-Mallets
+- Polisy
+- Proverville
+- Rouvres-les-Vignes
+- Rizaucourt-Buchey
+- Rumilly-lès-Vaudes
+- Saint-Usage
+- Ville-sur-Arce
+- Vitry-le-Croisé
+
+## Champagne — Haute-Marne
+- Condes
+- Hâcourt
+- Nomécourt
+- Sexfontaines
+- Thol-lès-Millières
+
+## Coteaux Champenois
+- (même liste complète que Champagne AOC)
+
+## Rosé des Riceys
+- Les Riceys

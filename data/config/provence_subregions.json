@@ -1,0 +1,22 @@
+{
+  "Provence occidentale": {
+    "departements": ["13"],
+    "bbox": [4.6, 43.4, 5.3, 43.9]
+  },
+  "Sainte-Victoire et Haut-Var": {
+    "departements": ["13", "83"],
+    "bbox": [5.3, 43.4, 6.0, 43.85]
+  },
+  "Bandol et littoral varois": {
+    "departements": ["83"],
+    "bbox": [5.5, 43.05, 6.0, 43.3]
+  },
+  "Provence orientale": {
+    "departements": ["83", "06"],
+    "bbox": [6.1, 43.2, 7.3, 43.85]
+  },
+  "Alpes provençales": {
+    "departements": ["04"],
+    "bbox": [5.8, 43.8, 6.6, 44.25]
+  }
+}

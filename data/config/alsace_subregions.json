@@ -1,0 +1,14 @@
+{
+  "Alsace du Nord": {
+    "departements": ["67"],
+    "bbox": [7.2, 48.75, 7.9, 49.1]
+  },
+  "Alsace centrale": {
+    "departements": ["67", "68"],
+    "bbox": [7.2, 48.2, 7.65, 48.7]
+  },
+  "Alsace du Sud": {
+    "departements": ["68"],
+    "bbox": [7.1, 47.6, 7.6, 48.1]
+  }
+}

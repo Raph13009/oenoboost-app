@@ -1,0 +1,22 @@
+{
+  "Médoc et Graves": {
+    "departements": ["33"],
+    "bbox": [-1.2, 44.6, -0.3, 45.8]
+  },
+  "Libournais": {
+    "departements": ["33"],
+    "bbox": [-0.4, 44.85, 0.2, 45.25]
+  },
+  "Entre-deux-Mers": {
+    "departements": ["33"],
+    "bbox": [-0.7, 44.5, 0.05, 45.1]
+  },
+  "Blayais-Bourgeais": {
+    "departements": ["33"],
+    "bbox": [-0.8, 45.1, -0.15, 45.55]
+  },
+  "Sauternais et Bazadais": {
+    "departements": ["33"],
+    "bbox": [-0.7, 44.3, -0.2, 44.75]
+  }
+}

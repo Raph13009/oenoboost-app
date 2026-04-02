@@ -1,0 +1,22 @@
+{
+  "Patrimonio et Nebbiu": {
+    "departements": ["2B"],
+    "bbox": [8.8, 42.55, 9.45, 42.8]
+  },
+  "Balagne": {
+    "departements": ["2B"],
+    "bbox": [8.7, 42.45, 9.2, 42.65]
+  },
+  "Ajaccio et Gravona": {
+    "departements": ["2A"],
+    "bbox": [8.55, 41.85, 9.1, 42.1]
+  },
+  "Sartène et Figari": {
+    "departements": ["2A"],
+    "bbox": [8.75, 41.4, 9.45, 41.8]
+  },
+  "Côte orientale": {
+    "departements": ["2B", "2A"],
+    "bbox": [9.25, 41.7, 9.55, 42.45]
+  }
+}

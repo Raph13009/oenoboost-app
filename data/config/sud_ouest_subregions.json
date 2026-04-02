@@ -1,0 +1,22 @@
+{
+  "Bergeracois": {
+    "departements": ["24"],
+    "bbox": [0.3, 44.6, 0.95, 45.05]
+  },
+  "Gascogne": {
+    "departements": ["32", "40", "47"],
+    "bbox": [-0.6, 43.7, 0.5, 44.4]
+  },
+  "Piémont pyrénéen": {
+    "departements": ["64", "65"],
+    "bbox": [-0.8, 43.15, 0.2, 43.65]
+  },
+  "Quercy et Rouergue": {
+    "departements": ["46", "12", "82"],
+    "bbox": [1.4, 44.1, 2.6, 44.75]
+  },
+  "Tarn et Toulousain": {
+    "departements": ["31", "81", "82"],
+    "bbox": [1.2, 43.4, 2.2, 44.05]
+  }
+}

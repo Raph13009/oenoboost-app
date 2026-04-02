@@ -1,0 +1,22 @@
+{
+  "Montagne de Reims": {
+    "departements": ["51"],
+    "bbox": [3.8, 49.05, 4.25, 49.3]
+  },
+  "Vallée de la Marne": {
+    "departements": ["51", "02"],
+    "bbox": [3.1, 48.9, 4.3, 49.15]
+  },
+  "Côte des Blancs": {
+    "departements": ["51"],
+    "bbox": [3.8, 48.9, 4.15, 49.1]
+  },
+  "Côte de Sézanne": {
+    "departements": ["51"],
+    "bbox": [3.5, 48.6, 4.0, 48.9]
+  },
+  "Côte des Bar": {
+    "departements": ["10"],
+    "bbox": [4.2, 47.85, 4.9, 48.25]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "Chablisien": {
+    "departements": ["89"],
+    "bbox": [3.0, 47.6, 3.9, 48.1]
+  },
+  "Grand Auxerrois": {
+    "departements": ["89"],
+    "bbox": [2.9, 47.3, 4.0, 47.9]
+  },
+  "Côte de Nuits": {
+    "departements": ["21"],
+    "bbox": [4.8, 47.1, 5.2, 47.45]
+  },
+  "Côte de Beaune": {
+    "departements": ["21"],
+    "bbox": [4.6, 46.85, 5.1, 47.1]
+  },
+  "Côte Chalonnaise et Couchois": {
+    "departements": ["71"],
+    "bbox": [4.4, 46.55, 4.9, 47.05]
+  },
+  "Mâconnais": {
+    "departements": ["71"],
+    "bbox": [4.45, 46.15, 4.9, 46.65]
+  }
+}

@@ -46,4 +46,3 @@ export async function getSubregionsByRegionId(
 
   return (data ?? []) as VignobleMapSubregion[];
 }
-

@@ -1,0 +1,40 @@
+{
+  "Côte-Rôtie": [
+    "Ampuis",
+    "Saint-Cyr-sur-le-Rhône",
+    "Tupin-et-Semons"
+  ],
+  "Condrieu": [
+    "Chavanay",
+    "Malleval",
+    "Saint-Michel-sur-Rhône",
+    "Saint-Pierre-de-Bœuf",
+    "Vérin",
+    "Ampuis",
+    "Condrieu",
+    "Roches-de-Condrieu"
+  ],
+  "Crozes-Hermitage": [
+    "Beaumont-Monteux",
+    "Chanos-Curson",
+    "Crozes-Hermitage",
+    "Érôme",
+    "Gervans",
+    "Larnage",
+    "Mercurol-Veaunes",
+    "Pont-de-l'Isère",
+    "Roche-de-Glun",
+    "Serves-sur-Rhône",
+    "Tain-l'Hermitage"
+  ],
+  "Hermitage": [
+    "Tain-l'Hermitage"
+  ],
+  "Cornas": [
+    "Cornas"
+  ],
+  "Saint-Péray": [
+    "Guilherand-Granges",
+    "Saint-Péray"
+  ]
+}

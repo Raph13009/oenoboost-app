@@ -1,0 +1,26 @@
+{
+  "Rhône septentrional": {
+    "departements": ["69", "42", "07", "26"],
+    "bbox": [4.45, 44.7, 5.1, 45.6]
+  },
+  "Diois et Drôme sud": {
+    "departements": ["26"],
+    "bbox": [4.9, 44.3, 5.7, 45.0]
+  },
+  "Tricastin et Enclaves": {
+    "departements": ["26", "84"],
+    "bbox": [4.5, 44.1, 5.2, 44.55]
+  },
+  "Dentelles et Comtat": {
+    "departements": ["84"],
+    "bbox": [4.9, 44.05, 5.3, 44.35]
+  },
+  "Ventoux et Luberon": {
+    "departements": ["84"],
+    "bbox": [5.1, 43.75, 5.7, 44.1]
+  },
+  "Gard rhodanien": {
+    "departements": ["30"],
+    "bbox": [4.4, 43.7, 4.95, 44.2]
+  }
+}

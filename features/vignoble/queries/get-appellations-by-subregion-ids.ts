@@ -15,123 +15,126 @@ export type MapAppellation = {
   geojson: unknown | null;
 };
 
-type LinkAppellationRow = {
+type AppellationSubregionLinkRow = {
   subregion_id: string | null;
-  appellation:
-    | {
-        id: string;
-        slug: string;
-        name_fr: string;
-        name_en: string;
-        centroid_lat: number | null;
-        centroid_lng: number | null;
-        geojson: unknown | null;
-        deleted_at: string | null;
-        status: string | null;
-        published_at: string | null;
-      }
-    | {
-        id: string;
-        slug: string;
-        name_fr: string;
-        name_en: string;
-        centroid_lat: number | null;
-        centroid_lng: number | null;
-        geojson: unknown | null;
-        deleted_at: string | null;
-        status: string | null;
-        published_at: string | null;
-      }[]
-    | null;
+  appellation_id: string | null;
 };
 
-type AppellationLinkAppellation = {
-    id: string;
-    slug: string;
-    name_fr: string;
-    name_en: string;
-    centroid_lat: number | null;
-    centroid_lng: number | null;
-    geojson: unknown | null;
-    deleted_at: string | null;
-    status: string | null;
-    published_at: string | null;
+type AppellationRow = {
+  id: string;
+  slug: string;
+  name_fr: string;
+  name_en: string;
+  centroid_lat: number | null;
+  centroid_lng: number | null;
+  geojson: unknown | null;
+  deleted_at: string | null;
+  status: string | null;
+  published_at: string | null;
 };
+
+function chunkArray<T>(items: T[], size: number) {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
+    items.slice(index * size, (index + 1) * size),
+  );
+}
 
 export async function getAppellationsBySubregionIds(
   subregionIds: string[],
+  options?: { includeGeojson?: boolean },
 ): Promise<MapAppellation[]> {
   if (subregionIds.length === 0) return [];
 
   const supabase = createClient();
   const includeDraft = process.env.NODE_ENV !== "production";
+  const includeGeojson = options?.includeGeojson === true;
 
-  let linksQuery = supabase
-    .from("appellation_subregion_links")
-    .select(
-      "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, centroid_lat, centroid_lng, geojson, deleted_at, status, published_at)",
-    )
-    .in("subregion_id", subregionIds);
+  const subregionChunks = chunkArray(subregionIds, 8);
+  const linkRows: AppellationSubregionLinkRow[] = [];
 
-  if (!includeDraft) {
-    linksQuery = linksQuery.or(
-      "status.eq.published,published_at.not.is.null",
-      { referencedTable: "appellation" },
-    );
+  for (const chunk of subregionChunks) {
+    const { data, error } = await supabase
+      .from("appellation_subregion_links")
+      .select("subregion_id, appellation_id")
+      .in("subregion_id", chunk);
+
+    if (error) {
+      throw new Error(`Failed to fetch appellations for map: ${error.message}`);
+    }
+
+    linkRows.push(...((data ?? []) as AppellationSubregionLinkRow[]));
   }
 
-  const { data: linksData, error: linksError } = await linksQuery;
-  if (linksError) {
-    throw new Error(`Failed to fetch appellations for map: ${linksError.message}`);
-  }
+  const appellationIds = Array.from(
+    new Set(
+      linkRows
+        .map((row) => row.appellation_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
+  );
 
   if (shouldDebugAopMap) {
-    console.info("[aop-map][query] fetched links", {
+    console.info("[aop-map][query] fetched link rows", {
       requestedSubregionIds: subregionIds,
-      count: linksData?.length ?? 0,
-      sample: (linksData ?? []).slice(0, 10),
+      linkCount: linkRows.length,
+      appellationCount: appellationIds.length,
+      sample: linkRows.slice(0, 10),
     });
   }
 
-  const rows: MapAppellation[] = ((linksData ?? []) as LinkAppellationRow[])
-    .map((row): MapAppellation | null => {
-      const raw = row.appellation;
-      const a: AppellationLinkAppellation | null = Array.isArray(raw)
-        ? raw[0] ?? null
-        : raw;
-      if (!a) {
-        if (shouldDebugAopMap) {
-          console.warn("[aop-map][query] skipped row without appellation", row);
-        }
-        return null;
-      }
-      if (a.deleted_at) {
-        if (shouldDebugAopMap) {
-          console.warn("[aop-map][query] skipped deleted appellation", {
-            id: a.id,
-            slug: a.slug,
-            deleted_at: a.deleted_at,
-          });
-        }
-        return null;
-      }
+  if (appellationIds.length === 0) return [];
+
+  const appellationChunks = chunkArray(appellationIds, 24);
+  const appellationById = new Map<string, AppellationRow>();
+
+  for (const chunk of appellationChunks) {
+    let query = supabase
+      .from("appellations")
+      .select(
+        includeGeojson
+          ? "id, slug, name_fr, name_en, centroid_lat, centroid_lng, geojson, deleted_at, status, published_at"
+          : "id, slug, name_fr, name_en, centroid_lat, centroid_lng, deleted_at, status, published_at",
+      )
+      .in("id", chunk)
+      .is("deleted_at", null);
+
+    if (!includeDraft) {
+      query = query.or("status.eq.published,published_at.not.is.null");
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(`Failed to fetch appellations for map: ${error.message}`);
+    }
+
+    for (const row of (data ?? []) as AppellationRow[]) {
+      appellationById.set(row.id, row);
+    }
+  }
+
+  const rows: MapAppellation[] = linkRows
+    .map((link) => {
+      if (!link.appellation_id) return null;
+      const appellation = appellationById.get(link.appellation_id);
+      if (!appellation) return null;
+
       return {
-        id: a.id,
-        subregion_id: row.subregion_id ?? null,
-        slug: a.slug,
-        name_fr: a.name_fr,
-        name_en: a.name_en,
-        centroid_lat: a.centroid_lat ?? null,
-        centroid_lng: a.centroid_lng ?? null,
-        geojson: a.geojson ?? null,
+        id: appellation.id,
+        subregion_id: link.subregion_id ?? null,
+        slug: appellation.slug,
+        name_fr: appellation.name_fr,
+        name_en: appellation.name_en,
+        centroid_lat: appellation.centroid_lat ?? null,
+        centroid_lng: appellation.centroid_lng ?? null,
+        geojson: includeGeojson ? (appellation.geojson ?? null) : null,
       } satisfies MapAppellation;
     })
-    .filter((r): r is MapAppellation => r !== null);
+    .filter((row): row is MapAppellation => row !== null);
 
   if (shouldDebugAopMap) {
     console.info("[aop-map][query] mapped appellations", {
       count: rows.length,
-      items: rows.map((row) => ({
+      items: rows.slice(0, 25).map((row) => ({
         id: row.id,
         slug: row.slug,
         subregion_id: row.subregion_id,

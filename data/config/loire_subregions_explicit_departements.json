@@ -1,0 +1,14 @@
+{
+  "Pays Nantais": {
+    "departements": ["44", "85"]
+  },
+  "Anjou-Saumur": {
+    "departements": ["49", "79", "86"]
+  },
+  "Touraine": {
+    "departements": ["37", "41"]
+  },
+  "Centre-Loire": {
+    "departements": ["18", "36", "58"]
+  }
+}

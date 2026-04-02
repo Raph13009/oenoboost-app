@@ -1,0 +1,18 @@
+{
+  "Nord Beaujolais (Crus)": {
+    "departements": ["69", "71"],
+    "bbox": [4.55, 46.15, 4.85, 46.45]
+  },
+  "Beaujolais Villages": {
+    "departements": ["69", "71"],
+    "bbox": [4.55, 46.0, 4.9, 46.2]
+  },
+  "Bas-Beaujolais": {
+    "departements": ["69"],
+    "bbox": [4.6, 45.85, 4.9, 46.05]
+  },
+  "Pierres Dorées": {
+    "departements": ["69"],
+    "bbox": [4.55, 45.8, 4.75, 46.0]
+  }
+}

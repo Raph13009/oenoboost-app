@@ -647,7 +647,6 @@ export function VignobleMap({
   }) {
     const map = mapRef.current;
     const forceShow = options?.forceShow === true;
-    const activeSubregionId = options?.targetSubregionId ?? selectedSubregionId;
     if (!map || (!subregionsMode && !subregionsModeRef.current && !forceShow)) {
       return;
     }
@@ -703,9 +702,7 @@ export function VignobleMap({
       if (map.getLayer(aopLayerId)) map.removeLayer(aopLayerId);
       if (map.getSource(aopSourceId)) map.removeSource(aopSourceId);
 
-      const scopedSubregionIds = activeSubregionId
-        ? [activeSubregionId]
-        : currentSubregionIdsRef.current;
+      const scopedSubregionIds = currentSubregionIdsRef.current;
       const rows = await getAppellationsBySubregionIds(scopedSubregionIds, {
         includeGeojson: false,
       });
@@ -863,11 +860,21 @@ export function VignobleMap({
         type: "circle",
         source: aopSourceId,
         paint: {
-          "circle-radius": 3.2,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            4,
+            5.5,
+            6,
+            6.5,
+            8,
+            8,
+          ],
           "circle-color": ["get", "color_hex"],
-          "circle-stroke-width": 0.8,
+          "circle-stroke-width": 1.6,
           "circle-stroke-color": "#fffdec",
-          "circle-opacity": 0.9,
+          "circle-opacity": 0.98,
         },
       });
 
@@ -896,11 +903,7 @@ export function VignobleMap({
         if (!src) return;
         const bounds = map.getBounds();
 
-        const scoped = selectedSubregionId
-          ? aopFeaturesRef.current.filter(
-              (f) => f.properties.subregion_id === selectedSubregionId,
-            )
-          : aopFeaturesRef.current;
+        const scoped = aopFeaturesRef.current;
 
         const inView = scoped.filter((f) => {
           const coords = getFeaturePointCoordinates(f);
@@ -1348,11 +1351,7 @@ export function VignobleMap({
     }
 
     const bounds = map.getBounds();
-    const scoped = selectedSubregionId
-      ? aopFeaturesRef.current.filter(
-          (f) => f.properties.subregion_id === selectedSubregionId,
-        )
-      : aopFeaturesRef.current;
+    const scoped = aopFeaturesRef.current;
 
     const inView = scoped.filter((f) => {
       const coords = getFeaturePointCoordinates(f);
@@ -1381,15 +1380,6 @@ export function VignobleMap({
       features: nextFeatures,
     });
   }, [aopVisible, selectedSubregionId]);
-
-  useEffect(() => {
-    if (!aopVisible) return;
-    if (!subregionsMode) return;
-    void toggleAopLayer({
-      forceShow: true,
-      targetSubregionId: selectedSubregionId,
-    });
-  }, [selectedSubregionId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1700,8 +1690,8 @@ export function VignobleMap({
   }, [ready, initialRegionSlug, initialSubregionSlug, regionBySlug]);
 
   return (
-    <div className="flex h-full flex-col gap-2 overflow-hidden">
-      <div className={`relative ${subregionsMode ? "h-[62%]" : "h-full"}`}>
+    <div className="flex h-full flex-col gap-1 md:gap-2 overflow-hidden">
+      <div className={`relative ${subregionsMode ? "h-[78%] md:h-[62%]" : "h-full"}`}>
         <div
           ref={containerRef}
           className={`${heightClassName} w-full overflow-hidden rounded-2xl`}
@@ -1712,9 +1702,9 @@ export function VignobleMap({
           ref={cardRef}
           className="absolute bottom-0 left-0 right-0 z-20 rounded-t-lg border-t border-border bg-background"
         >
-          <div className="flex items-start justify-between gap-3 p-4 pb-3">
+          <div className="flex items-start justify-between gap-3 p-2 pb-1.5 md:p-4 md:pb-3">
             <div className="min-w-0">
-              <div className="font-heading text-xl text-wine">
+              <div className="font-heading text-lg text-wine md:text-xl">
                 {selectedRegion?.name ?? ""}
               </div>
               {!selectedRegion && (
@@ -1753,13 +1743,13 @@ export function VignobleMap({
           </div>
 
           {selectedRegion && (
-            <div className="px-4 pb-4 pt-0">
-              <div className="mt-0 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-border bg-card p-3">
+            <div className="px-2 pb-2 pt-0 md:px-4 md:pb-4">
+              <div className="mt-0 grid grid-cols-2 gap-1.5 md:gap-3">
+                <div className="rounded-xl border border-border bg-card p-2 md:p-3">
                   <div className="text-xs text-muted-foreground">
                     {strings.departmentsLabel}
                   </div>
-                  <div className="mt-1 font-heading text-lg">
+                  <div className="mt-1 font-heading text-base md:text-lg">
                     {selectedRegion.department_count === null
                       ? strings.na
                       : new Intl.NumberFormat(locale).format(
@@ -1768,11 +1758,11 @@ export function VignobleMap({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-border bg-card p-3">
+                <div className="rounded-xl border border-border bg-card p-2 md:p-3">
                   <div className="text-xs text-muted-foreground">
                     {strings.hectaresLabel}
                   </div>
-                  <div className="mt-1 font-heading text-lg">
+                  <div className="mt-1 font-heading text-base md:text-lg">
                     {selectedRegion.area_hectares === null
                       ? strings.na
                       : new Intl.NumberFormat(locale).format(
@@ -1781,11 +1771,11 @@ export function VignobleMap({
                   </div>
                 </div>
 
-                <div className="col-span-2 rounded-xl border border-border bg-card p-3">
+                <div className="col-span-2 rounded-xl border border-border bg-card p-2 md:p-3">
                   <div className="text-xs text-muted-foreground">
                     {strings.totalProductionLabel}
                   </div>
-                  <div className="mt-1 font-heading text-lg">
+                  <div className="mt-1 font-heading text-base md:text-lg">
                     {selectedRegion.total_production_hl === null
                       ? strings.na
                       : `${new Intl.NumberFormat(locale).format(
@@ -1795,9 +1785,9 @@ export function VignobleMap({
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-2">
+              <div className="mt-2 flex gap-2 md:mt-4">
                 <Button
-                  className="flex-1"
+                  className="h-11 flex-1"
                   disabled={subregionsLoading || subregionsMode}
                   onClick={() => {
                     if (!selectedRegion) return;

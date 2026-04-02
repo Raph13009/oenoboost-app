@@ -35,9 +35,9 @@ export default async function VignoblePage({
     }));
 
   return (
-    // Root layout adds top/bottom padding (`pt-8 pb-16` in app/layout.tsx).
-    // Subtract them so the map fills the remaining viewport and the page stays non-scrollable.
-    <div className="h-[calc(100vh-3.5rem-2rem-1rem)] overflow-hidden">
+    // Full-bleed viewport below the sticky header.
+    // We cancel the app layout padding here so the vignoble page always fits in one screen on mobile.
+    <div className="-mx-6 -mt-5 -mb-8 h-[calc(100dvh-3.5rem)] overflow-hidden overscroll-none lg:-mx-8">
       <div className="h-full p-1.5 md:p-1">
         <VignobleMap
           regions={mapRegions}

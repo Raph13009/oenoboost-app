@@ -112,7 +112,7 @@ export async function getAppellationsBySubregionIds(
   }
 
   const rows = linkRows
-    .map((link) => {
+    .map((link): MapAppellation | null => {
       if (!link.appellation_id) return null;
       const appellation = appellationById.get(link.appellation_id);
       if (!appellation) return null;
@@ -126,7 +126,7 @@ export async function getAppellationsBySubregionIds(
         centroid_lat: appellation.centroid_lat ?? null,
         centroid_lng: appellation.centroid_lng ?? null,
         geojson: includeGeojson ? (appellation.geojson ?? null) : null,
-      } satisfies MapAppellation;
+      };
     })
     .filter((row): row is MapAppellation => row !== null);
 

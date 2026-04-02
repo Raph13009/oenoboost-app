@@ -86,15 +86,14 @@ export async function getAppellationsBySubregionIds(
 
   const appellationChunks = chunkArray(appellationIds, 24);
   const appellationById = new Map<string, AppellationRow>();
+  const selectClause = includeGeojson
+    ? "id, slug, name_fr, name_en, centroid_lat, centroid_lng, geojson, deleted_at, status, published_at"
+    : "id, slug, name_fr, name_en, centroid_lat, centroid_lng, deleted_at, status, published_at";
 
   for (const chunk of appellationChunks) {
     let query = supabase
       .from("appellations")
-      .select(
-        includeGeojson
-          ? "id, slug, name_fr, name_en, centroid_lat, centroid_lng, geojson, deleted_at, status, published_at"
-          : "id, slug, name_fr, name_en, centroid_lat, centroid_lng, deleted_at, status, published_at",
-      )
+      .select(selectClause)
       .in("id", chunk)
       .is("deleted_at", null);
 
@@ -107,7 +106,7 @@ export async function getAppellationsBySubregionIds(
       throw new Error(`Failed to fetch appellations for map: ${error.message}`);
     }
 
-    for (const row of (data ?? []) as AppellationRow[]) {
+    for (const row of ((data ?? []) as unknown as AppellationRow[])) {
       appellationById.set(row.id, row);
     }
   }

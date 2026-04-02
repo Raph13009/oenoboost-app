@@ -111,7 +111,7 @@ export async function getAppellationsBySubregionIds(
     }
   }
 
-  const rows: MapAppellation[] = linkRows
+  const rows = linkRows
     .map((link) => {
       if (!link.appellation_id) return null;
       const appellation = appellationById.get(link.appellation_id);

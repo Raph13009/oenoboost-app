@@ -168,6 +168,36 @@
   animation: tasting-saved-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes paywall-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.paywall-modal-enter {
+  animation: paywall-modal-enter 0.35s ease-out both;
+}
+
+@keyframes blog-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.blog-card-enter {
+  animation: blog-card-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .vignoble-aop-popup .mapboxgl-popup-content {
   padding: 0;
   background: transparent;
@@ -181,6 +211,22 @@
   border-bottom-color: #fffdec !important;
   border-left-color: #fffdec !important;
   border-right-color: #fffdec !important;
+  border-width: 5px !important;
+}
+
+.vignoble-aop-tooltip .mapboxgl-popup-content {
+  padding: 0;
+  background: #fffdec;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.vignoble-aop-tooltip .mapboxgl-popup-tip {
+  border-top-color: #fffdec !important;
+  border-bottom-color: #fffdec !important;
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
   border-width: 5px !important;
 }
 

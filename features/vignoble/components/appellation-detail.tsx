@@ -3,6 +3,7 @@ import type { Appellation } from "../types";
 import type { Locale } from "@/lib/i18n/config";
 import { getContent } from "@/lib/i18n/get-content";
 import type { RelatedSoil } from "@/features/sols/types";
+import { PremiumGate } from "@/components/shared/premium-gate";
 
 import type { AppellationFavoriteLabels } from "./appellation-favorite-button";
 import { AppellationFavoriteButton } from "./appellation-favorite-button";
@@ -19,6 +20,7 @@ type AppellationDetailProps = {
     isLoggedIn: boolean;
   };
   favoriteLabels?: AppellationFavoriteLabels;
+  userPlan: "free" | "premium";
   relatedSoils?: RelatedSoil[];
   soilLabels?: {
     relatedSoils: string;
@@ -31,6 +33,7 @@ export function AppellationDetail({
   locale,
   favorite,
   favoriteLabels,
+  userPlan,
   relatedSoils = [],
   soilLabels,
 }: AppellationDetailProps) {
@@ -74,7 +77,8 @@ export function AppellationDetail({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+      <PremiumGate isPremium={appellation.is_premium} userPlan={userPlan}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
         <section className="rounded-xl border border-border bg-card p-4 md:p-5">
           <h2 className="font-heading text-xl font-semibold">
             {locale === "fr" ? "Chiffres clés" : "Key figures"}
@@ -165,7 +169,8 @@ export function AppellationDetail({
             </div>
           )}
         </section>
-      </div>
+        </div>
+      </PremiumGate>
     </div>
   );
 }

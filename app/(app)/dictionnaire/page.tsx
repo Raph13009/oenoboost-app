@@ -3,7 +3,6 @@ import { getDictionaryTermFavoriteIds } from "@/features/dictionnaire/queries/di
 import { getPublishedDictionaryTerms } from "@/features/dictionnaire/queries/dictionary.queries";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getCurrentUser } from "@/lib/auth/session";
-import { isPremiumPlan } from "@/lib/favorites/constants";
 import { getServerLocale } from "@/lib/i18n/server";
 
 export async function generateMetadata() {
@@ -23,7 +22,7 @@ export default async function DictionnairePage() {
   const favoritedIds = user
     ? [...(await getDictionaryTermFavoriteIds(user.id))]
     : [];
-  const userPremium = user ? isPremiumPlan(user.plan) : false;
+  const userPlan = user?.plan === "premium" ? "premium" : "free";
 
   return (
     <div className="flex flex-col gap-8 pb-8">
@@ -47,7 +46,7 @@ export default async function DictionnairePage() {
         }}
         favoritedIds={favoritedIds}
         isLoggedIn={!!user}
-        userPremium={userPremium}
+        userPlan={userPlan}
       />
     </div>
   );

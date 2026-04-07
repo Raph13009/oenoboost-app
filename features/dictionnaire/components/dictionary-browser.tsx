@@ -11,6 +11,7 @@ import type { DictionaryTerm } from "../types";
 import { dictionaryGroupKey } from "../utils";
 import { DictionaryTermFavoriteButton } from "./dictionary-term-favorite-button";
 import { cn } from "@/lib/utils";
+import { PremiumGate } from "@/components/shared/premium-gate";
 
 type Props = {
   terms: DictionaryTerm[];
@@ -23,7 +24,7 @@ type Props = {
   >;
   favoritedIds: string[];
   isLoggedIn: boolean;
-  userPremium: boolean;
+  userPlan: "free" | "premium";
 };
 
 const LIST_PAGE_SIZE = 20;
@@ -39,7 +40,7 @@ export function DictionaryBrowser({
   favoritesLimit,
   favoritedIds,
   isLoggedIn,
-  userPremium,
+  userPlan,
 }: Props) {
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
@@ -143,7 +144,6 @@ export function DictionaryBrowser({
     [labels, favoritesLimit],
   );
 
-  const canRead = (t: DictionaryTerm) => !t.is_premium || userPremium;
   const listToggleLabel =
     locale === "en"
       ? isListOpen
@@ -307,7 +307,7 @@ export function DictionaryBrowser({
               </div>
             </header>
 
-            {canRead(selected) ? (
+            <PremiumGate isPremium={selected.is_premium} userPlan={userPlan}>
               <>
                 <div className="max-w-none font-sans text-[15px] leading-[1.75] text-foreground/95">
                   <p className="whitespace-pre-line">
@@ -337,16 +337,7 @@ export function DictionaryBrowser({
                   </div>
                 ) : null}
               </>
-            ) : (
-              <div className="rounded-xl border border-border/60 bg-muted/20 p-6">
-                <p className="font-heading text-lg text-foreground">
-                  {labels.premiumLockedTitle}
-                </p>
-                <p className="mt-2 font-sans text-[15px] leading-relaxed text-muted-foreground">
-                  {labels.premiumLockedBody}
-                </p>
-              </div>
-            )}
+            </PremiumGate>
           </article>
         )}
       </section>

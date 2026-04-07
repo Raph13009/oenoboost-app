@@ -8,6 +8,8 @@ type LinkAppellationRow = {
         slug: string;
         name_fr: string;
         name_en: string;
+        centroid_lat: number | null;
+        centroid_lng: number | null;
         deleted_at: string | null;
       }
     | {
@@ -15,6 +17,8 @@ type LinkAppellationRow = {
         slug: string;
         name_fr: string;
         name_en: string;
+        centroid_lat: number | null;
+        centroid_lng: number | null;
         deleted_at: string | null;
       }[]
     | null;
@@ -51,6 +55,8 @@ export type MapAppellationCommunes = {
   slug: string;
   name_fr: string;
   name_en: string;
+  centroid_lat: number | null;
+  centroid_lng: number | null;
   communes: MapAppellationCommune[];
 };
 
@@ -64,7 +70,7 @@ export async function getAppellationCommunesBySubregionIds(
   let linksQuery = supabase
     .from("appellation_subregion_links")
     .select(
-      "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, deleted_at, status, published_at)",
+      "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, centroid_lat, centroid_lng, deleted_at, status, published_at)",
     )
     .in("subregion_id", subregionIds);
 
@@ -86,12 +92,12 @@ export async function getAppellationCommunesBySubregionIds(
         slug: appellation.slug,
         name_fr: appellation.name_fr,
         name_en: appellation.name_en,
+        centroid_lat: appellation.centroid_lat ?? null,
+        centroid_lng: appellation.centroid_lng ?? null,
       };
     })
     .filter(
-      (
-        row,
-      ): row is Omit<MapAppellationCommunes, "communes"> => row !== null,
+      (row): row is Omit<MapAppellationCommunes, "communes"> => row !== null,
     );
 
   const appellationIds = Array.from(new Set(appellations.map((row) => row.id)));

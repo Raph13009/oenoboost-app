@@ -56,6 +56,7 @@ export default async function GrapeDetailPage({ params, searchParams }: Props) {
       <GrapeDetail
         grape={grape}
         locale={locale}
+        userPlan={user?.plan === "premium" ? "premium" : "free"}
         favorite={{
           grapeId: grape.id,
           grapeSlug: grape.slug,

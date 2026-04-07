@@ -6,6 +6,7 @@ import type { RelatedAop, SoilType } from "../types";
 import type { SoilFavoriteLabels } from "./soil-favorite-button";
 import { SoilFavoriteButton } from "./soil-favorite-button";
 import { SoilCoverImage } from "./soil-cover-image";
+import { PremiumGate } from "@/components/shared/premium-gate";
 
 type SoilDetailProps = {
   locale: Locale;
@@ -19,6 +20,7 @@ type SoilDetailProps = {
     isLoggedIn: boolean;
   };
   favoriteLabels: SoilFavoriteLabels;
+  userPlan: "free" | "premium";
   labels: {
     geologicalOrigin: string;
     regions: string;
@@ -53,6 +55,7 @@ export function SoilDetail({
   emptyRelatedAopsLabel,
   favorite,
   favoriteLabels,
+  userPlan,
   labels,
 }: SoilDetailProps) {
   const textClass = "whitespace-pre-line leading-relaxed";
@@ -97,7 +100,8 @@ export function SoilDetail({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+      <PremiumGate isPremium={soil.is_premium} userPlan={userPlan}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
         <DetailSection title={labels.geologicalOrigin}>
           <p className={textClass}>{soil.geological_origin_fr || "..."}</p>
         </DetailSection>
@@ -153,7 +157,8 @@ export function SoilDetail({
             </ul>
           )}
         </DetailSection>
-      </div>
+        </div>
+      </PremiumGate>
     </div>
   );
 }

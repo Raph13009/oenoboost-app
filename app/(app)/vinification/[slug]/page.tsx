@@ -9,6 +9,7 @@ import {
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getContent } from "@/lib/i18n/get-content";
 import { getServerLocale } from "@/lib/i18n/server";
+import { getCurrentUser } from "@/lib/auth/session";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -38,6 +39,8 @@ export default async function VinificationDetailPage({ params }: Props) {
 
   const steps = await getVinificationStepsForType(type.id);
   const name = getContent(type, "name", locale);
+  const user = await getCurrentUser();
+  const userPlan = user?.plan === "premium" ? "premium" : "free";
 
   return (
     <div className="flex flex-col gap-8 pb-12">
@@ -62,9 +65,13 @@ export default async function VinificationDetailPage({ params }: Props) {
         <VinificationTimeline
           steps={steps}
           locale={locale}
+          isContentPremium={type.is_premium}
+          userPlan={userPlan}
           labels={{
             expand: dict.vinification.timelineExpand,
             collapse: dict.vinification.timelineCollapse,
+            detailLockedTitle: dict.vinification.detailLockedTitle,
+            detailLockedBody: dict.vinification.detailLockedBody,
           }}
         />
       ) : (

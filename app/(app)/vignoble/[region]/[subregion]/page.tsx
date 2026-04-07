@@ -182,6 +182,7 @@ export default async function RegionSubregionOrAopPage({
       <AppellationDetail
         appellation={aop.appellation}
         locale={locale}
+        userPlan={user?.plan === "premium" ? "premium" : "free"}
         favorite={{
           appellationId: aop.appellation.id,
           regionSlug: aop.region.slug,

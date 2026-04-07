@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { PremiumGate } from "@/components/shared/premium-gate";
 import { getContent } from "@/lib/i18n/get-content";
 import type { Locale } from "@/lib/i18n/config";
 import type { VinificationStep } from "../types";
@@ -19,11 +20,16 @@ import { cn } from "@/lib/utils";
 type VinificationTimelineLabels = {
   expand: string;
   collapse: string;
+  detailLockedTitle: string;
+  detailLockedBody: string;
 };
 
 type VinificationTimelineProps = {
   steps: VinificationStep[];
   locale: Locale;
+  /** When true, step detail text is gated for free users (summary stays visible). */
+  isContentPremium: boolean;
+  userPlan: "free" | "premium";
   labels: VinificationTimelineLabels;
 };
 
@@ -52,6 +58,8 @@ type StepCardProps = {
   index: number;
   locale: Locale;
   labels: VinificationTimelineLabels;
+  isContentPremium: boolean;
+  userPlan: "free" | "premium";
   open: boolean;
   onToggle: () => void;
 };
@@ -61,6 +69,8 @@ function StepCard({
   index,
   locale,
   labels,
+  isContentPremium,
+  userPlan,
   open,
   onToggle,
 }: StepCardProps) {
@@ -109,6 +119,12 @@ function StepCard({
     </div>
   );
 
+  const detailBody = (
+    <p className="whitespace-pre-line text-[15px] leading-relaxed text-foreground/85">
+      {detail}
+    </p>
+  );
+
   const detailBlock = hasDetail ? (
     <div
       className={cn(
@@ -119,11 +135,19 @@ function StepCard({
       <div className="min-h-0 overflow-hidden">
         <div
           className={cn(
-            "border-t border-border/40 pt-4 text-[15px] leading-relaxed text-foreground/85 transition-opacity duration-300 ease-out motion-reduce:transition-none",
+            "border-t border-border/40 pt-4 transition-opacity duration-300 ease-out motion-reduce:transition-none",
             open ? "opacity-100" : "opacity-0",
           )}
         >
-          <p className="whitespace-pre-line">{detail}</p>
+          <PremiumGate
+            isPremium={isContentPremium}
+            userPlan={userPlan}
+            variant="inline"
+            inlineLockedTitle={labels.detailLockedTitle}
+            inlineLockedDescription={labels.detailLockedBody}
+          >
+            {detailBody}
+          </PremiumGate>
         </div>
       </div>
     </div>
@@ -199,6 +223,8 @@ function measureTimelineSegment(
 export function VinificationTimeline({
   steps,
   locale,
+  isContentPremium,
+  userPlan,
   labels,
 }: VinificationTimelineProps) {
   const [openId, setOpenId] = useState<string | null>(null);
@@ -314,6 +340,8 @@ export function VinificationTimeline({
                   index={index}
                   locale={locale}
                   labels={labels}
+                  isContentPremium={isContentPremium}
+                  userPlan={userPlan}
                   open={openId === step.id}
                   onToggle={() => toggle(step.id)}
                 />
@@ -353,6 +381,8 @@ export function VinificationTimeline({
                             index={index}
                             locale={locale}
                             labels={labels}
+                            isContentPremium={isContentPremium}
+                            userPlan={userPlan}
                             open={openId === step.id}
                             onToggle={() => toggle(step.id)}
                           />
@@ -395,6 +425,8 @@ export function VinificationTimeline({
                             index={index}
                             locale={locale}
                             labels={labels}
+                            isContentPremium={isContentPremium}
+                            userPlan={userPlan}
                             open={openId === step.id}
                             onToggle={() => toggle(step.id)}
                           />

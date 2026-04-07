@@ -7,6 +7,7 @@ const fr = {
     degustation: "Dégustation",
     quiz: "Quiz",
     dictionnaire: "Dictionnaire",
+    blog: "Blog",
     profil: "Profil",
     favorites: "Favoris",
     myFavorites: "Mes Favoris",
@@ -107,6 +108,9 @@ const fr = {
     timelineExpand: "Afficher le détail de l’étape",
     timelineCollapse: "Masquer le détail de l’étape",
     emptySteps: "Aucune étape n’est encore publiée pour cette méthode.",
+    detailLockedTitle: "Explication détaillée réservée",
+    detailLockedBody:
+      "Passez à Premium pour lire l’analyse complète de cette étape.",
   },
   dictionnaire: {
     pageTitle: "Dictionnaire du vin",
@@ -377,6 +381,39 @@ const fr = {
     vignobleMapSubtitle: "Explorer la carte des vignobles",
     dailyTrueLabel: "Vrai",
     dailyFalseLabel: "Faux",
+  },
+  paywall: {
+    title: "Débloquer Premium",
+    intro: "Accédez à l'expérience OenoBoost complète.",
+    featureAop: "Accès complet à plus de 375 fiches AOP détaillées",
+    featureMap:
+      "Carte interactive du vin (régions → sous-régions → AOP)",
+    featureQuiz: "Quiz illimités (Débutant → Expert)",
+    featureDictionary: "Dictionnaire du vin complet (termes illimités)",
+    featureTasting: "Fiches de dégustation pro (remplir et exporter)",
+    featureFavorites:
+      "Favoris illimités pour constituer votre bibliothèque du vin",
+    premiumLabel: "Premium",
+    priceLine: "9,99 € / mois",
+    cancelAnytime: "Annulation à tout moment",
+    upgrade: "Passer à Premium",
+    continueFree: "Continuer gratuitement",
+    gateTitle: "Contenu Premium",
+    gateBody: "Débloquez l'accès complet pour explorer ce contenu.",
+    gateCta: "Passer à Premium",
+  },
+  blog: {
+    title: "Blog",
+    subtitle:
+      "Actualités, conseils et contenus pour approfondir votre culture du vin.",
+    empty: "Aucun article pour le moment.",
+    allTopics: "Tous",
+    backToBlog: "Retour au blog",
+    detailSoon: "Contenu complet à venir.",
+    premiumBadge: "Premium",
+    articleLockedTitle: "Article complet réservé",
+    articleLockedBody:
+      "Passez à Premium pour lire l’intégralité de cet article.",
   },
   common: {
     loading: "Chargement...",

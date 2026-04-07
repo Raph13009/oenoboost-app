@@ -4,3 +4,5 @@ node_modules
 .DS_Store
 .cursor/mcp.json
 .next
+__pycache__/
+*.pyc

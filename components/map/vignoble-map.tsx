@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Button } from "@/components/ui/button";
 import { getSubregionsByRegionId } from "@/features/vignoble/queries/get-subregions-by-region-id";
-import { getAppellationsBySubregionIds } from "@/features/vignoble/queries/get-appellations-by-subregion-ids";
+import { getAppellationCommunesBySubregionIds } from "@/features/vignoble/queries/get-appellation-communes-by-subregion-ids";
+import { unionMultiPolygons } from "@/lib/utils/union-multi-polygons";
 import { XIcon } from "lucide-react";
 
 export type VignobleMapRegion = {
@@ -28,8 +29,57 @@ const subOutlineLayerId = "vignoble-subregions-outline";
 const aopSourceId = "vignoble-aops";
 const aopFillLayerId = "vignoble-aops-fill";
 const aopOutlineLayerId = "vignoble-aops-outline";
-const aopLayerId = "vignoble-aops-circle";
-const aopLabelLayerId = "vignoble-aops-label";
+const aopPointsSourceId = "vignoble-aops-centroids";
+const aopFallbackSourceId = "vignoble-aops-fallback-poly";
+const aopFallbackFillLayerId = "vignoble-aops-fallback-fill";
+const aopFallbackOutlineLayerId = "vignoble-aops-fallback-outline";
+const aopLabelLayerId = "vignoble-aops-centroid-labels";
+
+function validCentroidLngLat(
+  lng: number | null | undefined,
+  lat: number | null | undefined,
+): [number, number] | null {
+  if (lng == null || lat == null) return null;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return [lng, lat];
+}
+
+/** Small irregular quadrilateral (~1 km across) for AOPs without commune geometry; deterministic from id. */
+function buildCentroidFallbackPolygon(
+  lng: number,
+  lat: number,
+  seedId: string,
+): GeoJSON.Polygon {
+  const halfSideM = 520;
+  const latRad = (lat * Math.PI) / 180;
+  const mPerDegLat = 111320;
+  const mPerDegLng = Math.max(1e-6, 111320 * Math.cos(latRad));
+
+  let h = 2166136261;
+  for (let i = 0; i < seedId.length; i++) {
+    h ^= seedId.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const r = (bits: number) => {
+    const x = (h >>> bits) & 0xff;
+    return 0.88 + (x / 255) * 0.24;
+  };
+
+  const dx = (i: number) => (halfSideM * r(i * 3)) / mPerDegLng;
+  const dy = (i: number) => (halfSideM * r(i * 3 + 1)) / mPerDegLat;
+
+  const corners: [number, number][] = [
+    [lng - dx(0), lat - dy(1)],
+    [lng + dx(2), lat - dy(3)],
+    [lng + dx(4), lat + dy(5)],
+    [lng - dx(6), lat + dy(7)],
+  ];
+  return {
+    type: "Polygon",
+    coordinates: [[...corners, corners[0]]],
+  };
+}
 
 type SubregionLegendItem = {
   id: string;
@@ -203,165 +253,6 @@ function normalizeToMultiPolygon(geojson: any): GeoJSON.MultiPolygon | null {
   return null;
 }
 
-function getGeometryPointFallback(
-  geojson: any,
-): [number, number] | null {
-  const g = geojson?.type === "Feature" ? geojson.geometry : geojson;
-  if (!g || typeof g !== "object") return null;
-
-  if (g.type === "Point") {
-    const [lng, lat] = g.coordinates ?? [];
-    if (Number.isFinite(lng) && Number.isFinite(lat)) {
-      return [lng, lat];
-    }
-    return null;
-  }
-
-  const normalized = normalizeToMultiPolygon(g);
-  if (!normalized) return null;
-  const bounds = computeMultiPolygonBounds(normalized);
-  if (!bounds) return null;
-
-  const [[minLng, minLat], [maxLng, maxLat]] = bounds;
-  const lng = (minLng + maxLng) / 2;
-  const lat = (minLat + maxLat) / 2;
-  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
-}
-
-function getSubregionSyntheticPoint(
-  subregionId: string | null,
-  missingIndex: number,
-  subregions: Array<{
-    id: string;
-    geojson: GeoJSON.MultiPolygon;
-  }>,
-): [number, number] | null {
-  if (!subregionId) return null;
-
-  const subregion = subregions.find((item) => item.id === subregionId);
-  if (!subregion) return null;
-
-  const bounds = computeMultiPolygonBounds(subregion.geojson);
-  if (!bounds) return null;
-
-  const [[minLng, minLat], [maxLng, maxLat]] = bounds;
-  const centerLng = (minLng + maxLng) / 2;
-  const centerLat = (minLat + maxLat) / 2;
-
-  const lngSpan = Math.max(maxLng - minLng, 0.01);
-  const latSpan = Math.max(maxLat - minLat, 0.01);
-  const radiusLng = Math.min(lngSpan * 0.18, 0.08);
-  const radiusLat = Math.min(latSpan * 0.18, 0.06);
-
-  if (missingIndex === 0) {
-    return [centerLng, centerLat];
-  }
-
-  const ringIndex = Math.floor((missingIndex - 1) / 6) + 1;
-  const slotIndex = (missingIndex - 1) % 6;
-  const angle = (slotIndex / 6) * Math.PI * 2;
-  const lng = centerLng + Math.cos(angle) * radiusLng * ringIndex;
-  const lat = centerLat + Math.sin(angle) * radiusLat * ringIndex;
-
-  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
-}
-
-function getFeaturePointCoordinates(
-  feature: any,
-): [number, number] | null {
-  const coordinates = feature?.geometry?.coordinates;
-  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
-  const [lng, lat] = coordinates;
-  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
-}
-
-function getRegionSyntheticPoint(
-  regionGeojson: any,
-  missingIndex: number,
-): [number, number] | null {
-  const normalized = normalizeToMultiPolygon(regionGeojson);
-  if (!normalized) return null;
-
-  const bounds = computeMultiPolygonBounds(normalized);
-  if (!bounds) return null;
-
-  const [[minLng, minLat], [maxLng, maxLat]] = bounds;
-  const centerLng = (minLng + maxLng) / 2;
-  const centerLat = (minLat + maxLat) / 2;
-
-  const lngSpan = Math.max(maxLng - minLng, 0.02);
-  const latSpan = Math.max(maxLat - minLat, 0.02);
-  const radiusLng = Math.min(lngSpan * 0.22, 0.18);
-  const radiusLat = Math.min(latSpan * 0.22, 0.12);
-
-  if (missingIndex === 0) {
-    return [centerLng, centerLat];
-  }
-
-  const ringIndex = Math.floor((missingIndex - 1) / 8) + 1;
-  const slotIndex = (missingIndex - 1) % 8;
-  const angle = (slotIndex / 8) * Math.PI * 2;
-  const lng = centerLng + Math.cos(angle) * radiusLng * ringIndex;
-  const lat = centerLat + Math.sin(angle) * radiusLat * ringIndex;
-
-  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
-}
-
-function spreadOverlappingAopFeatures(
-  features: Array<{
-    type: "Feature";
-    id: string;
-    properties: {
-      subregion_id: string | null;
-      name: string;
-      slug: string;
-      show_label: boolean;
-    };
-    geometry: { type: "Point"; coordinates: [number, number] };
-  }>,
-) {
-  const groups = new Map<string, typeof features>();
-
-  for (const feature of features) {
-    const [lng, lat] = feature.geometry.coordinates;
-    const key = `${lng.toFixed(6)}:${lat.toFixed(6)}`;
-    const group = groups.get(key);
-    if (group) {
-      group.push(feature);
-    } else {
-      groups.set(key, [feature]);
-    }
-  }
-
-  const adjusted = features.map((feature) => ({ ...feature }));
-  const byId = new Map(adjusted.map((feature) => [feature.id, feature]));
-
-  for (const group of groups.values()) {
-    if (group.length <= 1) continue;
-
-    const [baseLng, baseLat] = group[0].geometry.coordinates;
-    const radiusLng = 0.018;
-    const radiusLat = 0.012;
-
-    group
-      .slice()
-      .sort((a, b) => a.properties.slug.localeCompare(b.properties.slug))
-      .forEach((feature, index, sortedGroup) => {
-        const angle = (index / sortedGroup.length) * Math.PI * 2;
-        const target = byId.get(feature.id);
-        if (!target) return;
-        target.geometry = {
-          type: "Point",
-          coordinates: [
-            baseLng + Math.cos(angle) * radiusLng,
-            baseLat + Math.sin(angle) * radiusLat,
-          ],
-        };
-      });
-  }
-
-  return adjusted;
-}
 
 type RegionFeature = {
   type: "Feature";
@@ -410,16 +301,14 @@ export function VignobleMap({
   const [subregionsMode, setSubregionsMode] = useState(false);
   const [aopVisible, setAopVisible] = useState(false);
   const [aopLoading, setAopLoading] = useState(false);
-  const aopFeaturesRef = useRef<any[]>([]);
-  const aopViewHandlerRef = useRef<(() => void) | null>(null);
   const aopInteractionHandlersRef = useRef<
     Array<{
-      event: "mousemove" | "mouseleave" | "click";
-      layerId: string;
+      event: "mousemove" | "mouseleave" | "mouseout" | "click";
+      layerId: string | null;
       handler: (...args: any[]) => void;
     }>
   >([]);
-  const aopRenderModeRef = useRef<"none" | "points" | "polygons">("none");
+  const aopRenderModeRef = useRef<"none" | "polygons">("none");
   const aopPopupRef = useRef<any>(null);
   const aopVisibleRef = useRef(false);
   const subregionsModeRef = useRef(false);
@@ -641,6 +530,33 @@ export function VignobleMap({
     });
   }
 
+  function cleanupAopLayers(map: any) {
+    if (aopInteractionHandlersRef.current.length > 0) {
+      for (const interaction of aopInteractionHandlersRef.current) {
+        if (interaction.layerId) {
+          map.off(interaction.event, interaction.layerId, interaction.handler);
+        } else {
+          map.off(interaction.event, interaction.handler);
+        }
+      }
+      aopInteractionHandlersRef.current = [];
+    }
+    if (aopPopupRef.current) {
+      aopPopupRef.current.remove();
+      aopPopupRef.current = null;
+    }
+    if (map.getLayer(aopLabelLayerId)) map.removeLayer(aopLabelLayerId);
+    if (map.getLayer(aopFallbackOutlineLayerId)) {
+      map.removeLayer(aopFallbackOutlineLayerId);
+    }
+    if (map.getLayer(aopFallbackFillLayerId)) map.removeLayer(aopFallbackFillLayerId);
+    if (map.getSource(aopFallbackSourceId)) map.removeSource(aopFallbackSourceId);
+    if (map.getSource(aopPointsSourceId)) map.removeSource(aopPointsSourceId);
+    if (map.getLayer(aopOutlineLayerId)) map.removeLayer(aopOutlineLayerId);
+    if (map.getLayer(aopFillLayerId)) map.removeLayer(aopFillLayerId);
+    if (map.getSource(aopSourceId)) map.removeSource(aopSourceId);
+  }
+
   async function toggleAopLayer(options?: {
     forceShow?: boolean;
     targetSubregionId?: string | null;
@@ -652,27 +568,7 @@ export function VignobleMap({
     }
 
     if (aopVisible && !forceShow) {
-      if (aopInteractionHandlersRef.current.length > 0) {
-        for (const interaction of aopInteractionHandlersRef.current) {
-          map.off(interaction.event, interaction.layerId, interaction.handler);
-        }
-        aopInteractionHandlersRef.current = [];
-      }
-      if (aopPopupRef.current) {
-        aopPopupRef.current.remove();
-        aopPopupRef.current = null;
-      }
-      if (aopViewHandlerRef.current) {
-        map.off("moveend", aopViewHandlerRef.current);
-        map.off("zoomend", aopViewHandlerRef.current);
-        aopViewHandlerRef.current = null;
-      }
-      if (map.getLayer(aopOutlineLayerId)) map.removeLayer(aopOutlineLayerId);
-      if (map.getLayer(aopFillLayerId)) map.removeLayer(aopFillLayerId);
-      if (map.getLayer(aopLabelLayerId)) map.removeLayer(aopLabelLayerId);
-      if (map.getLayer(aopLayerId)) map.removeLayer(aopLayerId);
-      if (map.getSource(aopSourceId)) map.removeSource(aopSourceId);
-      aopFeaturesRef.current = [];
+      cleanupAopLayers(map);
       aopRenderModeRef.current = "none";
       setAopVisible(false);
       aopVisibleRef.current = false;
@@ -681,374 +577,513 @@ export function VignobleMap({
 
     setAopLoading(true);
     try {
-      if (aopInteractionHandlersRef.current.length > 0) {
-        for (const interaction of aopInteractionHandlersRef.current) {
-          map.off(interaction.event, interaction.layerId, interaction.handler);
-        }
-        aopInteractionHandlersRef.current = [];
-      }
-      if (aopViewHandlerRef.current) {
-        map.off("moveend", aopViewHandlerRef.current);
-        map.off("zoomend", aopViewHandlerRef.current);
-        aopViewHandlerRef.current = null;
-      }
-      if (aopPopupRef.current) {
-        aopPopupRef.current.remove();
-        aopPopupRef.current = null;
-      }
-      if (map.getLayer(aopOutlineLayerId)) map.removeLayer(aopOutlineLayerId);
-      if (map.getLayer(aopFillLayerId)) map.removeLayer(aopFillLayerId);
-      if (map.getLayer(aopLabelLayerId)) map.removeLayer(aopLabelLayerId);
-      if (map.getLayer(aopLayerId)) map.removeLayer(aopLayerId);
-      if (map.getSource(aopSourceId)) map.removeSource(aopSourceId);
+      cleanupAopLayers(map);
 
       const scopedSubregionIds = currentSubregionIdsRef.current;
-      const rows = await getAppellationsBySubregionIds(scopedSubregionIds, {
-        includeGeojson: false,
-      });
+      const appellationsWithCommunes =
+        await getAppellationCommunesBySubregionIds(scopedSubregionIds);
+
       const aopColorById = buildSubregionAopColorMap(
-        rows.map((row) => ({
+        appellationsWithCommunes.map((row) => ({
           id: row.id,
           slug: row.slug,
           subregion_id: row.subregion_id,
         })),
         subregionColorByIdRef.current,
       );
-      const pointAopColorById = buildSubregionAopColorMap(
-        rows.map((row) => ({
-          id: row.id,
-          slug: row.slug,
-          subregion_id: row.subregion_id,
-        })),
-        subregionColorByIdRef.current,
-      );
+
       if (shouldDebugAopMap) {
-        console.info("[aop-map][render] rows from query", {
-          count: rows.length,
-          items: rows.map((row) => ({
-            id: row.id,
-            slug: row.slug,
-            subregion_id: row.subregion_id,
-            centroid_lat: row.centroid_lat,
-            centroid_lng: row.centroid_lng,
-            has_geojson: Boolean(row.geojson),
-          })),
-        });
-      }
-
-      const missingPointCountBySubregion = new Map<string, number>();
-      let regionSyntheticCount = 0;
-      const features = rows
-        .map((a, index) => {
-          const hasStoredCentroid =
-            a.centroid_lng !== null &&
-            a.centroid_lat !== null &&
-            Number.isFinite(a.centroid_lng) &&
-            Number.isFinite(a.centroid_lat);
-          const geojsonFallback = getGeometryPointFallback(a.geojson);
-          const syntheticIndex = a.subregion_id
-            ? (missingPointCountBySubregion.get(a.subregion_id) ?? 0)
-            : 0;
-          const subregionSyntheticPoint = getSubregionSyntheticPoint(
-            a.subregion_id,
-            syntheticIndex,
-            subregionRowsRef.current,
-          );
-          const regionSyntheticPoint = getRegionSyntheticPoint(
-            selectedRegion?.geojson,
-            regionSyntheticCount,
-          );
-          const coordinates =
-            hasStoredCentroid
-              ? ([a.centroid_lng, a.centroid_lat] as [number, number])
-              : geojsonFallback ??
-                subregionSyntheticPoint ??
-                regionSyntheticPoint ??
-                (map
-                  ? ([map.getCenter().lng, map.getCenter().lat] as [number, number])
-                  : null);
-
-          if (!hasStoredCentroid && a.subregion_id) {
-            missingPointCountBySubregion.set(a.subregion_id, syntheticIndex + 1);
-          }
-          if (!hasStoredCentroid && !geojsonFallback && !subregionSyntheticPoint) {
-            regionSyntheticCount += 1;
-          }
-
-          if (!coordinates) {
-            if (shouldDebugAopMap) {
-              console.warn("[aop-map][render] skipped appellation without usable point", {
-                id: a.id,
-                slug: a.slug,
-                subregion_id: a.subregion_id,
-                centroid_lat: a.centroid_lat,
-                centroid_lng: a.centroid_lng,
-                has_geojson: Boolean(a.geojson),
-              });
-            }
-            return null;
-          }
-
-          if (shouldDebugAopMap && !hasStoredCentroid) {
-            console.info("[aop-map][render] using fallback point", {
-              id: a.id,
-              slug: a.slug,
-              subregion_id: a.subregion_id,
-              coordinates,
-              fallback:
-                geojsonFallback !== null
-                  ? "geojson"
-                  : subregionSyntheticPoint !== null
-                    ? "subregion-synthetic"
-                    : regionSyntheticPoint !== null
-                      ? "region-synthetic"
-                      : "map-center",
-            });
-          }
-
-          return {
-            type: "Feature" as const,
+        console.info("[aop-map][render] appellations with communes", {
+          appellationCount: appellationsWithCommunes.length,
+          sample: appellationsWithCommunes.slice(0, 5).map((a) => ({
             id: a.id,
-            properties: {
-              subregion_id: a.subregion_id,
-              name: locale === "en" ? a.name_en : a.name_fr,
-              slug: a.slug,
-              show_label: false,
-              color_hex:
-                pointAopColorById.get(a.id) ??
-                subregionColorByIdRef.current.get(a.subregion_id ?? "") ??
-                CONTRAST_SUBREGION_COLORS[
-                  index % CONTRAST_SUBREGION_COLORS.length
-                ],
-            },
-            geometry: {
-              type: "Point" as const,
-              coordinates,
-            },
-          };
-        })
-        .filter((f): f is NonNullable<typeof f> => Boolean(f));
-
-      const resolvedFeatures = spreadOverlappingAopFeatures(features);
-
-      if (shouldDebugAopMap) {
-        console.info("[aop-map][render] final features", {
-          count: resolvedFeatures.length,
-          items: resolvedFeatures.map((feature) => ({
-            id: feature.id,
-            slug: feature.properties.slug,
-            subregion_id: feature.properties.subregion_id,
-            coordinates: feature.geometry.coordinates,
+            slug: a.slug,
+            communeCount: a.communes.length,
           })),
         });
       }
 
-      if (map.getLayer(aopLayerId)) map.removeLayer(aopLayerId);
-      if (map.getLayer(aopLabelLayerId)) map.removeLayer(aopLabelLayerId);
-      if (map.getSource(aopSourceId)) map.removeSource(aopSourceId);
-
-      map.addSource(aopSourceId, {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: resolvedFeatures,
-        },
-      });
-
-      map.addLayer({
-        id: aopLayerId,
-        type: "circle",
-        source: aopSourceId,
-        paint: {
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            4,
-            3.4,
-            6,
-            4.2,
-            8,
-            5.2,
-          ],
-          "circle-color": ["get", "color_hex"],
-          "circle-stroke-width": 0.8,
-          "circle-stroke-color": "#fffdec",
-          "circle-opacity": 0.92,
-        },
-      });
-
-      map.addLayer({
-        id: aopLabelLayerId,
-        type: "symbol",
-        source: aopSourceId,
-        filter: ["==", ["get", "show_label"], true],
-        layout: {
-          "text-field": ["get", "name"],
-          "text-size": 11,
-          "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
-          "text-offset": [0, 1.1],
-          "text-anchor": "top",
-          "text-allow-overlap": false,
-        },
-        paint: {
-          "text-color": "#2a2a2a",
-          "text-halo-color": "rgba(255,253,236,0.94)",
-          "text-halo-width": 1,
-        },
-      });
-
-      const updateAopLabels = () => {
-        const src = map.getSource(aopSourceId) as any;
-        if (!src) return;
-        const bounds = map.getBounds();
-
-        const scoped = aopFeaturesRef.current;
-
-        const inView = scoped.filter((f) => {
-          const coords = getFeaturePointCoordinates(f);
-          return coords ? bounds.contains(coords) : false;
-        });
-
-        const selected = inView
-          .slice()
-          .sort((a, b) => a.properties.name.localeCompare(b.properties.name))
-          .slice(0, 4)
-          .map((f) => f.id);
-        const selectedSet = new Set(selected);
-
-        const nextFeatures = aopFeaturesRef.current.map((f) => ({
-          ...f,
-          properties: {
-            ...f.properties,
-            show_label: selectedSet.has(f.id),
-          },
-        }));
-
-        aopFeaturesRef.current = nextFeatures;
-        src.setData({
-          type: "FeatureCollection",
-          features: nextFeatures,
-        });
+      type AopPolygonProperties = {
+        appellation_id: string;
+        appellation_slug: string;
+        appellation_name: string;
+        display_label: string;
+        subregion_id: string | null;
+        color_hex: string;
+        uses_subregion_geometry_fallback: boolean;
+        label_lng?: number;
+        label_lat?: number;
       };
 
-      aopFeaturesRef.current = resolvedFeatures;
-      aopRenderModeRef.current = "points";
-      updateAopLabels();
+      const fallbackFirstFeatures: Array<{
+        type: "Feature";
+        id: string;
+        properties: AopPolygonProperties;
+        geometry: GeoJSON.MultiPolygon;
+      }> = [];
+      const communeFeatures: typeof fallbackFirstFeatures = [];
 
-      const openAopPointPopup = async (feature: any) => {
-        const subregionId = feature?.properties?.subregion_id as string | null;
-        const coords = feature?.geometry?.coordinates as [number, number] | undefined;
-        if (!subregionId || !coords) return;
-        const sub = subregionRowsRef.current.find((s) => s.id === subregionId);
-        if (!sub || !selectedRegion) return;
+      const centroidPointFeatures: GeoJSON.Feature<GeoJSON.Point>[] = [];
 
-        const mapboxglMod: any = await import("mapbox-gl");
-        const mapboxgl = mapboxglMod.default ?? mapboxglMod;
+      const centroidFallbackPolyFeatures: Array<{
+        type: "Feature";
+        id: string;
+        properties: AopPolygonProperties & { is_centroid_fallback_poly: true };
+        geometry: GeoJSON.Polygon;
+      }> = [];
 
-        if (aopPopupRef.current) {
-          aopPopupRef.current.remove();
-          aopPopupRef.current = null;
+      for (const aop of appellationsWithCommunes) {
+        const color =
+          aopColorById.get(aop.id) ??
+          subregionColorByIdRef.current.get(aop.subregion_id ?? "") ??
+          CONTRAST_SUBREGION_COLORS[0];
+        const aopNameFr = aop.name_fr;
+        const aopNameEn = aop.name_en;
+        const displayLabel = locale === "en" ? aopNameEn : aopNameFr;
+
+        const seenCommuneIds = new Set<string>();
+        const communeGeoms: GeoJSON.MultiPolygon[] = [];
+        for (const commune of aop.communes) {
+          if (!commune.geometry || seenCommuneIds.has(commune.id)) continue;
+          seenCommuneIds.add(commune.id);
+          const normalized = normalizeToMultiPolygon(commune.geometry);
+          if (normalized) communeGeoms.push(normalized);
         }
 
-        const aopName = String(feature?.properties?.name ?? "AOP");
-        const aopSlug = String(feature?.properties?.slug ?? "");
-        if (!aopSlug) return;
-        const targetUrl = `/vignoble/${selectedRegion.region_slug}/${aopSlug}?from=map&subregion=${sub.slug}`;
-        const popup = new mapboxgl.Popup({
-          closeButton: false,
-          closeOnClick: true,
-          offset: 10,
-          className: "vignoble-aop-popup",
-        })
-          .setLngLat(coords)
+        const mergedFromCommunes = unionMultiPolygons(communeGeoms);
+        const centroid = validCentroidLngLat(aop.centroid_lng, aop.centroid_lat);
+
+        let displayGeometry: GeoJSON.MultiPolygon | null = mergedFromCommunes;
+        let usesSubregionGeometryFallback = false;
+
+        if (!displayGeometry && !centroid && communeGeoms.length === 0 && aop.subregion_id) {
+          const parentSub = subregionRowsRef.current.find(
+            (s) => s.id === aop.subregion_id,
+          );
+          if (parentSub?.geojson) {
+            displayGeometry = normalizeToMultiPolygon(parentSub.geojson);
+            usesSubregionGeometryFallback = true;
+            if (shouldDebugAopMap) {
+              console.info("[aop-map][render] subregion geometry fallback", {
+                id: aop.id,
+                slug: aop.slug,
+                subregion_id: aop.subregion_id,
+              });
+            }
+          }
+        }
+
+        const labelLng = centroid?.[0];
+        const labelLat = centroid?.[1];
+
+        if (centroid) {
+          centroidPointFeatures.push({
+            type: "Feature",
+            id: aop.id,
+            geometry: { type: "Point", coordinates: centroid },
+            properties: {
+              appellation_id: aop.id,
+              appellation_slug: aop.slug,
+              appellation_name: displayLabel,
+              display_label: displayLabel,
+              subregion_id: aop.subregion_id,
+              color_hex: color,
+              label_lng: labelLng,
+              label_lat: labelLat,
+            },
+          });
+        }
+
+        if (!displayGeometry) {
+          if (centroid) {
+            centroidFallbackPolyFeatures.push({
+              type: "Feature",
+              id: aop.id,
+              geometry: buildCentroidFallbackPolygon(
+                centroid[0],
+                centroid[1],
+                aop.id,
+              ),
+              properties: {
+                appellation_id: aop.id,
+                appellation_slug: aop.slug,
+                appellation_name: displayLabel,
+                display_label: displayLabel,
+                subregion_id: aop.subregion_id,
+                color_hex: color,
+                uses_subregion_geometry_fallback: false,
+                is_centroid_fallback_poly: true,
+                ...(labelLng != null && labelLat != null
+                  ? { label_lng: labelLng, label_lat: labelLat }
+                  : {}),
+              },
+            });
+          } else if (shouldDebugAopMap) {
+            console.warn("[aop-map][render] skipped appellation (no geometry)", {
+              id: aop.id,
+              slug: aop.slug,
+              communeGeomCount: communeGeoms.length,
+            });
+          }
+          continue;
+        }
+
+        const baseProps: AopPolygonProperties = {
+          appellation_id: aop.id,
+          appellation_slug: aop.slug,
+          appellation_name: displayLabel,
+          display_label: displayLabel,
+          subregion_id: aop.subregion_id,
+          color_hex: color,
+          uses_subregion_geometry_fallback: usesSubregionGeometryFallback,
+        };
+        if (labelLng != null && labelLat != null) {
+          baseProps.label_lng = labelLng;
+          baseProps.label_lat = labelLat;
+        }
+
+        const feat = {
+          type: "Feature" as const,
+          id: aop.id,
+          properties: baseProps,
+          geometry: displayGeometry,
+        };
+
+        if (usesSubregionGeometryFallback) {
+          fallbackFirstFeatures.push(feat);
+        } else {
+          communeFeatures.push(feat);
+        }
+      }
+
+      const polygonFeatures = [...fallbackFirstFeatures, ...communeFeatures];
+
+      if (shouldDebugAopMap) {
+        console.info("[aop-map][render] features built", {
+          polygonCount: polygonFeatures.length,
+          centroidFallbackPolyCount: centroidFallbackPolyFeatures.length,
+          centroidPoints: centroidPointFeatures.length,
+        });
+      }
+
+      const hasPolygons = polygonFeatures.length > 0;
+      const hasCentroidFallbackPolys = centroidFallbackPolyFeatures.length > 0;
+      const hasCentroidPoints = centroidPointFeatures.length > 0;
+
+      if (hasPolygons) {
+        map.addSource(aopSourceId, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: polygonFeatures },
+        });
+
+        map.addLayer({
+          id: aopFillLayerId,
+          type: "fill",
+          source: aopSourceId,
+          paint: {
+            "fill-color": ["get", "color_hex"],
+            "fill-opacity": 0.58,
+          },
+        });
+
+        map.addLayer({
+          id: aopOutlineLayerId,
+          type: "line",
+          source: aopSourceId,
+          paint: {
+            "line-color": "rgba(0,0,0,0.10)",
+            "line-width": 0.5,
+          },
+        });
+      }
+
+      if (hasCentroidFallbackPolys) {
+        map.addSource(aopFallbackSourceId, {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: centroidFallbackPolyFeatures,
+          },
+        });
+
+        map.addLayer({
+          id: aopFallbackFillLayerId,
+          type: "fill",
+          source: aopFallbackSourceId,
+          paint: {
+            "fill-color": ["get", "color_hex"],
+            "fill-opacity": 0.72,
+          },
+        });
+
+        map.addLayer({
+          id: aopFallbackOutlineLayerId,
+          type: "line",
+          source: aopFallbackSourceId,
+          paint: {
+            "line-color": "rgba(0,0,0,0.22)",
+            "line-width": 1.2,
+          },
+        });
+      }
+
+      if (hasCentroidPoints) {
+        map.addSource(aopPointsSourceId, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: centroidPointFeatures },
+        });
+
+        map.addLayer({
+          id: aopLabelLayerId,
+          type: "symbol",
+          source: aopPointsSourceId,
+          layout: {
+            "text-field": ["get", "display_label"],
+            "text-font": [
+              "Open Sans Semibold",
+              "Arial Unicode MS Regular",
+            ],
+            "text-size": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              8,
+              9,
+              12,
+              10.5,
+              16,
+              12,
+            ],
+            "text-anchor": "center",
+            "text-allow-overlap": false,
+            "text-ignore-placement": false,
+            "text-padding": 8,
+            "text-max-width": 14,
+          },
+          paint: {
+            "text-color": "#7c2736",
+            "text-halo-color": "#fffded",
+            "text-halo-width": 1.1,
+            "text-halo-blur": 0.2,
+            "text-opacity": 0.92,
+          },
+          minzoom: 9,
+        });
+      }
+
+      if (map.getLayer(subOutlineLayerId)) {
+        map.moveLayer(subOutlineLayerId);
+      }
+
+      let hoveredAppellationId: string | null = null;
+
+      const mapboxglMod: any = await import("mapbox-gl");
+      const mapboxgl = mapboxglMod.default ?? mapboxglMod;
+
+      const tooltip = new mapboxgl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 12,
+        className: "vignoble-aop-tooltip",
+      });
+
+      const isSubregionGeometryFallbackFeature = (f: any) => {
+        const v = f?.properties?.uses_subregion_geometry_fallback;
+        return v === true || v === "true";
+      };
+
+      const activeAopPickLayers = (): string[] => {
+        const ids: string[] = [];
+        if (map.getLayer(aopFallbackFillLayerId)) {
+          ids.push(aopFallbackFillLayerId);
+        }
+        if (map.getLayer(aopFallbackOutlineLayerId)) {
+          ids.push(aopFallbackOutlineLayerId);
+        }
+        if (map.getLayer(aopFillLayerId)) ids.push(aopFillLayerId);
+        if (map.getLayer(aopLabelLayerId)) ids.push(aopLabelLayerId);
+        return ids;
+      };
+
+      /** Centroid-fallback polys are above commune fills so they win hits; then commune, then subregion fallback; labels last. */
+      const pickAopFeatureAtPoint = (point: { x: number; y: number }) => {
+        const layers = activeAopPickLayers();
+        if (layers.length === 0) return null;
+        const stack = map.queryRenderedFeatures(point, {
+          layers,
+        }) as any[];
+        if (!stack?.length) return null;
+        const fallbackHit = stack.find(
+          (f) =>
+            f.layer?.id === aopFallbackFillLayerId ||
+            f.layer?.id === aopFallbackOutlineLayerId,
+        );
+        if (fallbackHit) return fallbackHit;
+        const fillNonSub = stack.find(
+          (f) =>
+            f.layer?.id === aopFillLayerId &&
+            !isSubregionGeometryFallbackFeature(f),
+        );
+        if (fillNonSub) return fillNonSub;
+        const fillAny = stack.find((f) => f.layer?.id === aopFillLayerId);
+        if (fillAny) return fillAny;
+        return stack[0];
+      };
+
+      const resetAopHoverPaint = () => {
+        if (map.getLayer(aopFillLayerId)) {
+          map.setPaintProperty(aopFillLayerId, "fill-opacity", 0.58);
+        }
+        if (map.getLayer(aopOutlineLayerId)) {
+          map.setPaintProperty(aopOutlineLayerId, "line-width", 0.5);
+          map.setPaintProperty(
+            aopOutlineLayerId,
+            "line-color",
+            "rgba(0,0,0,0.10)",
+          );
+        }
+        if (map.getLayer(aopFallbackFillLayerId)) {
+          map.setPaintProperty(aopFallbackFillLayerId, "fill-opacity", 0.72);
+        }
+        if (map.getLayer(aopFallbackOutlineLayerId)) {
+          map.setPaintProperty(aopFallbackOutlineLayerId, "line-width", 1.2);
+          map.setPaintProperty(
+            aopFallbackOutlineLayerId,
+            "line-color",
+            "rgba(0,0,0,0.22)",
+          );
+        }
+      };
+
+      const applyAopHoverPaint = (appId: string) => {
+        if (map.getLayer(aopFillLayerId)) {
+          map.setPaintProperty(aopFillLayerId, "fill-opacity", [
+            "case",
+            ["==", ["get", "appellation_id"], appId],
+            0.8,
+            0.4,
+          ]);
+        }
+        if (map.getLayer(aopOutlineLayerId)) {
+          map.setPaintProperty(aopOutlineLayerId, "line-width", [
+            "case",
+            ["==", ["get", "appellation_id"], appId],
+            1.6,
+            0.5,
+          ]);
+          map.setPaintProperty(aopOutlineLayerId, "line-color", [
+            "case",
+            ["==", ["get", "appellation_id"], appId],
+            "rgba(0,0,0,0.32)",
+            "rgba(0,0,0,0.10)",
+          ]);
+        }
+        if (map.getLayer(aopFallbackFillLayerId)) {
+          map.setPaintProperty(aopFallbackFillLayerId, "fill-opacity", [
+            "case",
+            ["==", ["get", "appellation_id"], appId],
+            0.88,
+            0.72,
+          ]);
+        }
+        if (map.getLayer(aopFallbackOutlineLayerId)) {
+          map.setPaintProperty(aopFallbackOutlineLayerId, "line-width", [
+            "case",
+            ["==", ["get", "appellation_id"], appId],
+            2,
+            1.2,
+          ]);
+          map.setPaintProperty(aopFallbackOutlineLayerId, "line-color", [
+            "case",
+            ["==", ["get", "appellation_id"], appId],
+            "rgba(0,0,0,0.38)",
+            "rgba(0,0,0,0.22)",
+          ]);
+        }
+      };
+
+      const tooltipAnchor = (feature: any, fallback: { lng: number; lat: number }) => {
+        const lng = feature?.properties?.label_lng;
+        const lat = feature?.properties?.label_lat;
+        if (typeof lng === "number" && typeof lat === "number") {
+          return [lng, lat] as [number, number];
+        }
+        return [fallback.lng, fallback.lat] as [number, number];
+      };
+
+      const onAopPointerMove = (e: any) => {
+        const feature = pickAopFeatureAtPoint(e.point);
+        if (!feature) {
+          if (hoveredAppellationId !== null) {
+            hoveredAppellationId = null;
+            resetAopHoverPaint();
+            tooltip.remove();
+            map.getCanvas().style.cursor = "";
+          }
+          return;
+        }
+
+        const newAppId = feature.properties?.appellation_id as string | undefined;
+        const appName = (feature.properties?.display_label ??
+          feature.properties?.appellation_name) as string | undefined;
+
+        if (newAppId && newAppId !== hoveredAppellationId) {
+          hoveredAppellationId = newAppId;
+          applyAopHoverPaint(newAppId);
+        }
+
+        tooltip
+          .setLngLat(tooltipAnchor(feature, e.lngLat))
           .setHTML(
             `<div style="
-              min-width:200px;
-              background:#fffdec;
-              border:1px solid rgba(0,0,0,0.08);
-              border-radius:14px;
-              box-shadow:0 8px 22px rgba(0,0,0,0.08);
-              padding:12px 12px;
-              text-align:center;
-            ">
-              <div style="
-                font-family:'Times New Roman',serif;
-                font-size:16px;
-                letter-spacing:0.01em;
-                line-height:1.25;
-                color:#7c2736;
-                margin-bottom:10px;
-              ">${aopName}</div>
-              <a href="${targetUrl}" style="
-                display:inline-flex;
-                align-items:center;
-                justify-content:center;
-                min-width:108px;
-                padding:6px 12px;
-                border:1px solid rgba(124,39,54,0.25);
-                border-radius:10px;
-                background:rgba(124,39,54,0.06);
-                color:#7c2736;
-                text-decoration:none;
-                font-size:12px;
-                font-weight:500;
-                line-height:1;
-              ">
-                Voir l'AOP
-              </a>
-            </div>`,
+              font-family:'Times New Roman',serif;
+              font-size:14px;
+              letter-spacing:0.01em;
+              color:#7c2736;
+              padding:4px 10px;
+              white-space:nowrap;
+            ">${appName ?? ""}</div>`,
           )
           .addTo(map);
-        aopPopupRef.current = popup;
-      };
 
-      const onPinMove = () => {
         map.getCanvas().style.cursor = "pointer";
       };
-      const onPinLeave = () => {
+
+      const onAopPointerLeave = () => {
+        hoveredAppellationId = null;
+        resetAopHoverPaint();
+        tooltip.remove();
         map.getCanvas().style.cursor = "";
-      };
-      const onLabelMove = () => {
-        map.getCanvas().style.cursor = "pointer";
-      };
-      const onLabelLeave = () => {
-        map.getCanvas().style.cursor = "";
-      };
-      const onPinClick = (e: any) => {
-        const f = e.features?.[0];
-        if (!f) return;
-        void openAopPointPopup(f);
-      };
-      const onLabelClick = (e: any) => {
-        const f = e.features?.[0];
-        if (!f) return;
-        void openAopPointPopup(f);
       };
 
-      map.on("mousemove", aopLayerId, onPinMove);
-      map.on("mouseleave", aopLayerId, onPinLeave);
-      map.on("click", aopLayerId, onPinClick);
-      map.on("mousemove", aopLabelLayerId, onLabelMove);
-      map.on("mouseleave", aopLabelLayerId, onLabelLeave);
-      map.on("click", aopLabelLayerId, onLabelClick);
+      const onAopClick = (e: any) => {
+        const feature = pickAopFeatureAtPoint(e.point);
+        if (!feature) return;
+
+        const slug = feature.properties?.appellation_slug as string | undefined;
+        if (!slug || !selectedRegion) return;
+
+        const subregionId = feature.properties?.subregion_id as string | undefined;
+        const sub = subregionId
+          ? subregionRowsRef.current.find((s) => s.id === subregionId)
+          : null;
+
+        const targetUrl = `/vignoble/${selectedRegion.region_slug}/${slug}?from=map${sub ? `&subregion=${sub.slug}` : ""}`;
+        window.location.href = targetUrl;
+      };
+
+      map.on("mousemove", onAopPointerMove);
+      map.on("mouseout", onAopPointerLeave);
+      map.on("click", onAopClick);
+
       aopInteractionHandlersRef.current = [
-        { event: "mousemove", layerId: aopLayerId, handler: onPinMove },
-        { event: "mouseleave", layerId: aopLayerId, handler: onPinLeave },
-        { event: "click", layerId: aopLayerId, handler: onPinClick },
-        { event: "mousemove", layerId: aopLabelLayerId, handler: onLabelMove },
-        { event: "mouseleave", layerId: aopLabelLayerId, handler: onLabelLeave },
-        { event: "click", layerId: aopLabelLayerId, handler: onLabelClick },
+        { event: "mousemove", layerId: null, handler: onAopPointerMove },
+        { event: "mouseout", layerId: null, handler: onAopPointerLeave },
+        { event: "click", layerId: null, handler: onAopClick },
       ];
 
-      if (aopViewHandlerRef.current) {
-        map.off("moveend", aopViewHandlerRef.current);
-        map.off("zoomend", aopViewHandlerRef.current);
-      }
-      aopViewHandlerRef.current = () => updateAopLabels();
-      map.on("moveend", aopViewHandlerRef.current);
-      map.on("zoomend", aopViewHandlerRef.current);
-
+      aopPopupRef.current = tooltip;
+      aopRenderModeRef.current = "polygons";
       setAopVisible(true);
       aopVisibleRef.current = true;
     } finally {
@@ -1112,33 +1147,7 @@ export function VignobleMap({
       if (map.getLayer(subOutlineLayerId)) {
         map.removeLayer(subOutlineLayerId);
       }
-      if (map.getLayer(aopLayerId)) {
-        map.removeLayer(aopLayerId);
-      }
-      if (map.getLayer(aopOutlineLayerId)) {
-        map.removeLayer(aopOutlineLayerId);
-      }
-      if (map.getLayer(aopFillLayerId)) {
-        map.removeLayer(aopFillLayerId);
-      }
-      if (map.getLayer(aopLabelLayerId)) {
-        map.removeLayer(aopLabelLayerId);
-      }
-      if (map.getSource(aopSourceId)) {
-        map.removeSource(aopSourceId);
-      }
-      if (aopInteractionHandlersRef.current.length > 0) {
-        for (const interaction of aopInteractionHandlersRef.current) {
-          map.off(interaction.event, interaction.layerId, interaction.handler);
-        }
-        aopInteractionHandlersRef.current = [];
-      }
-      if (aopViewHandlerRef.current) {
-        map.off("moveend", aopViewHandlerRef.current);
-        map.off("zoomend", aopViewHandlerRef.current);
-        aopViewHandlerRef.current = null;
-      }
-      aopFeaturesRef.current = [];
+      cleanupAopLayers(map);
       aopRenderModeRef.current = "none";
       if (map.getSource(subSourceId)) {
         map.removeSource(subSourceId);
@@ -1336,49 +1345,32 @@ export function VignobleMap({
     if (!aopVisible) return;
     const map = mapRef.current;
     if (!map) return;
-    if (!map.getSource(aopSourceId)) return;
-    if (aopRenderModeRef.current === "polygons") {
-      const nextFilter = selectedSubregionId
-        ? ["==", ["get", "subregion_id"], selectedSubregionId]
-        : null;
-      if (map.getLayer(aopFillLayerId)) {
-        map.setFilter(aopFillLayerId, nextFilter as any);
-      }
-      if (map.getLayer(subOutlineLayerId)) {
-        map.moveLayer(subOutlineLayerId);
-      }
+    if (
+      !map.getSource(aopSourceId) &&
+      !map.getSource(aopFallbackSourceId) &&
+      !map.getSource(aopPointsSourceId)
+    ) {
       return;
     }
 
-    const bounds = map.getBounds();
-    const scoped = aopFeaturesRef.current;
-
-    const inView = scoped.filter((f) => {
-      const coords = getFeaturePointCoordinates(f);
-      return coords ? bounds.contains(coords) : false;
-    });
-
-    const selected = inView
-      .slice()
-      .sort((a, b) => a.properties.name.localeCompare(b.properties.name))
-      .slice(0, 4)
-      .map((f) => f.id);
-    const selectedSet = new Set(selected);
-
-    const nextFeatures = aopFeaturesRef.current.map((f) => ({
-      ...f,
-      properties: {
-        ...f.properties,
-        show_label: selectedSet.has(f.id),
-      },
-    }));
-
-    aopFeaturesRef.current = nextFeatures;
-    const src = map.getSource(aopSourceId) as any;
-    src.setData({
-      type: "FeatureCollection",
-      features: nextFeatures,
-    });
+    const nextFilter = selectedSubregionId
+      ? ["==", ["get", "subregion_id"], selectedSubregionId]
+      : null;
+    const aopLayers = [
+      aopFillLayerId,
+      aopOutlineLayerId,
+      aopFallbackFillLayerId,
+      aopFallbackOutlineLayerId,
+      aopLabelLayerId,
+    ];
+    for (const layerId of aopLayers) {
+      if (map.getLayer(layerId)) {
+        map.setFilter(layerId, nextFilter as any);
+      }
+    }
+    if (map.getLayer(subOutlineLayerId)) {
+      map.moveLayer(subOutlineLayerId);
+    }
   }, [aopVisible, selectedSubregionId]);
 
   useEffect(() => {
@@ -1437,37 +1429,7 @@ export function VignobleMap({
     if (map.getLayer(subOutlineLayerId)) {
       map.removeLayer(subOutlineLayerId);
     }
-    if (map.getLayer(aopLayerId)) {
-      map.removeLayer(aopLayerId);
-    }
-    if (map.getLayer(aopOutlineLayerId)) {
-      map.removeLayer(aopOutlineLayerId);
-    }
-    if (map.getLayer(aopFillLayerId)) {
-      map.removeLayer(aopFillLayerId);
-    }
-    if (map.getLayer(aopLabelLayerId)) {
-      map.removeLayer(aopLabelLayerId);
-    }
-    if (map.getSource(aopSourceId)) {
-      map.removeSource(aopSourceId);
-    }
-    if (aopInteractionHandlersRef.current.length > 0) {
-      for (const interaction of aopInteractionHandlersRef.current) {
-        map.off(interaction.event, interaction.layerId, interaction.handler);
-      }
-      aopInteractionHandlersRef.current = [];
-    }
-    if (aopPopupRef.current) {
-      aopPopupRef.current.remove();
-      aopPopupRef.current = null;
-    }
-    if (aopViewHandlerRef.current) {
-      map.off("moveend", aopViewHandlerRef.current);
-      map.off("zoomend", aopViewHandlerRef.current);
-      aopViewHandlerRef.current = null;
-    }
-    aopFeaturesRef.current = [];
+    cleanupAopLayers(map);
     aopRenderModeRef.current = "none";
     if (map.getSource(subSourceId)) {
       map.removeSource(subSourceId);

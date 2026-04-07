@@ -65,6 +65,7 @@ export default async function SoilDetailPage({ params, searchParams }: Props) {
       <SoilDetail
         locale={locale}
         soil={soil}
+        userPlan={user?.plan === "premium" ? "premium" : "free"}
         relatedAops={relatedAops}
         emptyRelatedAopsLabel={dict.sols.noRelatedAops}
         favorite={{

@@ -5,6 +5,7 @@ import { GrapeDetailSection } from "./grape-detail-section";
 import type { GrapeFavoriteLabels } from "./grape-favorite-button";
 import { GrapeFavoriteButton } from "./grape-favorite-button";
 import { GrapeGlobeMap } from "./grape-globe-map";
+import { PremiumGate } from "@/components/shared/premium-gate";
 
 type GrapeDetailProps = {
   grape: Grape;
@@ -16,6 +17,7 @@ type GrapeDetailProps = {
     isLoggedIn: boolean;
   };
   favoriteLabels: GrapeFavoriteLabels;
+  userPlan: "free" | "premium";
   labels: {
     origin: string;
     history: string;
@@ -38,6 +40,7 @@ export function GrapeDetail({
   locale,
   favorite,
   favoriteLabels,
+  userPlan,
   labels,
 }: GrapeDetailProps) {
   const name = getContent(grape, "name", locale);
@@ -77,7 +80,8 @@ export function GrapeDetail({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch">
+      <PremiumGate isPremium={grape.is_premium} userPlan={userPlan}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch">
         <GrapeDetailSection title={labels.origin} className="md:col-start-1 md:row-start-1">
           <p className={textClass}>
             {`${grape.origin_country ?? na}${originRegion ? ` — ${originRegion}` : ""}`}
@@ -127,7 +131,8 @@ export function GrapeDetail({
         >
           <p className={textClass}>{wines || na}</p>
         </GrapeDetailSection>
-      </div>
+        </div>
+      </PremiumGate>
     </div>
   );
 }

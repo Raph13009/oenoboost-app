@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
 
-## Getting Started
+# OenoBoost
 
-First, run the development server:
+### Learn wine the right way
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+*Maps you can wander. Terms that click. Quizzes that stick.*
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+*Built for curious drinkers who’d rather understand a bottle than impress a crowd.*
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+<br />
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+</div>
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+<br />
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## What do you want to explore?
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Pick a door. Each one jumps to a deeper slice of the product.
 
-## Deploy on Vercel
+|  |  |
+|:--|:--|
+| [🍷 **Explore the vineyard**](#path-vineyard) | Regions, terroir, and the story behind each glass |
+| [🧠 **Test your knowledge**](#path-knowledge) | Quizzes that go from curious beginner to serious nerd |
+| [📖 **Learn wine fundamentals**](#path-fundamentals) | Terms, techniques, and the vocabulary pros actually use |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+<br />
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+<br />
+
+<h3 id="path-vineyard">🍷 Explore the vineyard</h3>
+
+- **Interactive wine map** — Navigate appellations and geography without a textbook.
+- **AOP database** — Structured, searchable coverage of France’s wine landscape (375+ AOP and growing).
+
+<br />
+
+<h3 id="path-knowledge">🧠 Test your knowledge</h3>
+
+- **Quizzes** — Tiered paths so you always have the right level of challenge.
+- **Progress & mastery** — Built for repetition that sticks, not one-off trivia.
+
+<br />
+
+<h3 id="path-fundamentals">📖 Learn wine fundamentals</h3>
+
+- **Dictionary** — Clear definitions, bilingual where it matters, zero gatekeeping.
+- **Vinification & soils** — How wine is made and *why* place tastes the way it does.
+
+<br />
+
+---
+
+<br />
+
+## At a glance
+
+🍷 **375+ AOP** — Serious coverage, seriously browsable  
+
+🧠 **Quizzes** — From first sip to deep cut  
+
+🗺️ **Interactive map** — Geography you can *feel*  
+
+📖 **Wine dictionary** — Words that finally make sense  
+
+🧪 **Tasting tools** — Structure your impressions like a pro  
+
+<br />
+
+---
+
+<br />
+
+## Stack
+
+Next.js · Supabase · Mapbox · Tailwind · Vercel  
+
+*Server-first, map-native, editorial by design.*
+
+<br />
+
+---
+
+<br />
+
+## Why this project
+
+**The problem:** Wine education is either snobbish or shallow. Most apps dump facts; few connect place, language, and practice.
+
+**The vision:** OenoBoost treats wine like a craft you can learn — with maps you explore, terms you recognize in the wild, and quizzes that respect your curiosity.
+
+**The positioning:** Not a flashcard farm. A **product**: structured content, real geography, and tools you’ll actually open at the table.
+
+<br />
+
+---
+
+<br />
+
+<div align="center">
+
+*Warning: you may start understanding wine too well* 🍷
+
+<br />
+
+<sub>Built with care for learners who read labels twice.</sub>
+
+</div>

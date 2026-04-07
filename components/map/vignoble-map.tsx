@@ -6,8 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Button } from "@/components/ui/button";
 import { getSubregionsByRegionId } from "@/features/vignoble/queries/get-subregions-by-region-id";
-import { getAppellationCommunesBySubregionIds } from "@/features/vignoble/queries/get-appellation-communes-by-subregion-ids";
-import { unionMultiPolygons } from "@/lib/utils/union-multi-polygons";
+import { getAopCommunesInBbox } from "@/features/vignoble/queries/get-aop-communes-in-bbox";
 import { XIcon } from "lucide-react";
 
 export type VignobleMapRegion = {
@@ -29,57 +28,7 @@ const subOutlineLayerId = "vignoble-subregions-outline";
 const aopSourceId = "vignoble-aops";
 const aopFillLayerId = "vignoble-aops-fill";
 const aopOutlineLayerId = "vignoble-aops-outline";
-const aopPointsSourceId = "vignoble-aops-centroids";
-const aopFallbackSourceId = "vignoble-aops-fallback-poly";
-const aopFallbackFillLayerId = "vignoble-aops-fallback-fill";
-const aopFallbackOutlineLayerId = "vignoble-aops-fallback-outline";
-const aopLabelLayerId = "vignoble-aops-centroid-labels";
 
-function validCentroidLngLat(
-  lng: number | null | undefined,
-  lat: number | null | undefined,
-): [number, number] | null {
-  if (lng == null || lat == null) return null;
-  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  return [lng, lat];
-}
-
-/** Small irregular quadrilateral (~1 km across) for AOPs without commune geometry; deterministic from id. */
-function buildCentroidFallbackPolygon(
-  lng: number,
-  lat: number,
-  seedId: string,
-): GeoJSON.Polygon {
-  const halfSideM = 520;
-  const latRad = (lat * Math.PI) / 180;
-  const mPerDegLat = 111320;
-  const mPerDegLng = Math.max(1e-6, 111320 * Math.cos(latRad));
-
-  let h = 2166136261;
-  for (let i = 0; i < seedId.length; i++) {
-    h ^= seedId.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const r = (bits: number) => {
-    const x = (h >>> bits) & 0xff;
-    return 0.88 + (x / 255) * 0.24;
-  };
-
-  const dx = (i: number) => (halfSideM * r(i * 3)) / mPerDegLng;
-  const dy = (i: number) => (halfSideM * r(i * 3 + 1)) / mPerDegLat;
-
-  const corners: [number, number][] = [
-    [lng - dx(0), lat - dy(1)],
-    [lng + dx(2), lat - dy(3)],
-    [lng + dx(4), lat + dy(5)],
-    [lng - dx(6), lat + dy(7)],
-  ];
-  return {
-    type: "Polygon",
-    coordinates: [[...corners, corners[0]]],
-  };
-}
 
 type SubregionLegendItem = {
   id: string;
@@ -101,9 +50,6 @@ const CONTRAST_SUBREGION_COLORS = [
   "#ff8fab", // rose
 ];
 
-const shouldDebugAopMap =
-  process.env.NODE_ENV === "development" ||
-  process.env.NEXT_PUBLIC_DEBUG_AOP_MAP === "1";
 
 function normalizeHexColor(input: string | null | undefined): string | null {
   if (!input) return null;
@@ -113,89 +59,6 @@ function normalizeHexColor(input: string | null | undefined): string | null {
   return `#${hex.toLowerCase()}`;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const normalized = normalizeHexColor(hex);
-  if (!normalized) return null;
-  const raw = normalized.slice(1);
-  return {
-    r: Number.parseInt(raw.slice(0, 2), 16),
-    g: Number.parseInt(raw.slice(2, 4), 16),
-    b: Number.parseInt(raw.slice(4, 6), 16),
-  };
-}
-
-function rgbToHex(r: number, g: number, b: number) {
-  const toHex = (value: number) =>
-    clamp(Math.round(value), 0, 255).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-function mixHexColors(baseHex: string, targetHex: string, amount: number) {
-  const base = hexToRgb(baseHex);
-  const target = hexToRgb(targetHex);
-  if (!base || !target) return baseHex;
-  const t = clamp(amount, 0, 1);
-  return rgbToHex(
-    base.r + (target.r - base.r) * t,
-    base.g + (target.g - base.g) * t,
-    base.b + (target.b - base.b) * t,
-  );
-}
-
-function shiftHexTone(baseHex: string, offset: number) {
-  if (offset === 0) return baseHex;
-  return offset > 0
-    ? mixHexColors(baseHex, "#ffffff", offset)
-    : mixHexColors(baseHex, "#10212d", Math.abs(offset));
-}
-
-function buildShadeOffsets(count: number) {
-  if (count <= 1) return [-0.08];
-  const start = -0.24;
-  const end = 0.34;
-  return Array.from({ length: count }, (_, index) => {
-    const ratio = count === 1 ? 0.5 : index / (count - 1);
-    return start + (end - start) * ratio;
-  });
-}
-
-function buildSubregionAopColorMap(
-  rows: Array<{
-    id: string;
-    slug: string;
-    subregion_id: string | null;
-  }>,
-  subregionColorById: Map<string, string>,
-) {
-  const grouped = new Map<string, Array<{ id: string; slug: string }>>();
-  for (const row of rows) {
-    if (!row.subregion_id) continue;
-    const group = grouped.get(row.subregion_id) ?? [];
-    group.push({ id: row.id, slug: row.slug });
-    grouped.set(row.subregion_id, group);
-  }
-
-  const colorById = new Map<string, string>();
-
-  for (const [subregionId, appellations] of grouped) {
-    const baseColor =
-      subregionColorById.get(subregionId) ??
-      CONTRAST_SUBREGION_COLORS[0];
-    const sorted = appellations
-      .slice()
-      .sort((a, b) => a.slug.localeCompare(b.slug));
-    const offsets = buildShadeOffsets(sorted.length);
-    sorted.forEach((appellation, index) => {
-      colorById.set(appellation.id, shiftHexTone(baseColor, offsets[index] ?? 0));
-    });
-  }
-
-  return colorById;
-}
 
 function getSubregionBaseColor(
   colorHex: string | null | undefined,
@@ -334,8 +197,6 @@ export function VignobleMap({
       description: string | null;
     }>
   >([]);
-  const subregionColorByIdRef = useRef<Map<string, string>>(new Map());
-
   const regionById = useMemo(() => {
     return new Map(regions.map((r) => [r.region_id, r]));
   }, [regions]);
@@ -353,7 +214,7 @@ export function VignobleMap({
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const lastFittedRegionIdRef = useRef<string | null>(null);
-  const currentSubregionIdsRef = useRef<string[]>([]);
+  const currentRegionBboxRef = useRef<[[number, number], [number, number]] | null>(null);
   const currentRegionSubregionsBoundsRef = useRef<
     [[number, number], [number, number]] | null
   >(null);
@@ -545,22 +406,12 @@ export function VignobleMap({
       aopPopupRef.current.remove();
       aopPopupRef.current = null;
     }
-    if (map.getLayer(aopLabelLayerId)) map.removeLayer(aopLabelLayerId);
-    if (map.getLayer(aopFallbackOutlineLayerId)) {
-      map.removeLayer(aopFallbackOutlineLayerId);
-    }
-    if (map.getLayer(aopFallbackFillLayerId)) map.removeLayer(aopFallbackFillLayerId);
-    if (map.getSource(aopFallbackSourceId)) map.removeSource(aopFallbackSourceId);
-    if (map.getSource(aopPointsSourceId)) map.removeSource(aopPointsSourceId);
     if (map.getLayer(aopOutlineLayerId)) map.removeLayer(aopOutlineLayerId);
     if (map.getLayer(aopFillLayerId)) map.removeLayer(aopFillLayerId);
     if (map.getSource(aopSourceId)) map.removeSource(aopSourceId);
   }
 
-  async function toggleAopLayer(options?: {
-    forceShow?: boolean;
-    targetSubregionId?: string | null;
-  }) {
+  async function toggleAopLayer(options?: { forceShow?: boolean }) {
     const map = mapRef.current;
     const forceShow = options?.forceShow === true;
     if (!map || (!subregionsMode && !subregionsModeRef.current && !forceShow)) {
@@ -579,201 +430,41 @@ export function VignobleMap({
     try {
       cleanupAopLayers(map);
 
-      const scopedSubregionIds = currentSubregionIdsRef.current;
-      const appellationsWithCommunes =
-        await getAppellationCommunesBySubregionIds(scopedSubregionIds);
+      const bbox = currentRegionBboxRef.current;
+      if (!bbox) return;
 
-      const aopColorById = buildSubregionAopColorMap(
-        appellationsWithCommunes.map((row) => ({
-          id: row.id,
-          slug: row.slug,
-          subregion_id: row.subregion_id,
-        })),
-        subregionColorByIdRef.current,
-      );
+      const aops = await getAopCommunesInBbox([
+        bbox[0][0],
+        bbox[0][1],
+        bbox[1][0],
+        bbox[1][1],
+      ]);
 
-      if (shouldDebugAopMap) {
-        console.info("[aop-map][render] appellations with communes", {
-          appellationCount: appellationsWithCommunes.length,
-          sample: appellationsWithCommunes.slice(0, 5).map((a) => ({
-            id: a.id,
-            slug: a.slug,
-            communeCount: a.communes.length,
-          })),
-        });
-      }
-
-      type AopPolygonProperties = {
-        appellation_id: string;
-        appellation_slug: string;
-        appellation_name: string;
-        display_label: string;
-        subregion_id: string | null;
-        color_hex: string;
-        uses_subregion_geometry_fallback: boolean;
-        label_lng?: number;
-        label_lat?: number;
-      };
-
-      const fallbackFirstFeatures: Array<{
-        type: "Feature";
-        id: string;
-        properties: AopPolygonProperties;
-        geometry: GeoJSON.MultiPolygon;
-      }> = [];
-      const communeFeatures: typeof fallbackFirstFeatures = [];
-
-      const centroidPointFeatures: GeoJSON.Feature<GeoJSON.Point>[] = [];
-
-      const centroidFallbackPolyFeatures: Array<{
-        type: "Feature";
-        id: string;
-        properties: AopPolygonProperties & { is_centroid_fallback_poly: true };
-        geometry: GeoJSON.Polygon;
-      }> = [];
-
-      for (const aop of appellationsWithCommunes) {
-        const color =
-          aopColorById.get(aop.id) ??
-          subregionColorByIdRef.current.get(aop.subregion_id ?? "") ??
-          CONTRAST_SUBREGION_COLORS[0];
-        const aopNameFr = aop.name_fr;
-        const aopNameEn = aop.name_en;
-        const displayLabel = locale === "en" ? aopNameEn : aopNameFr;
-
-        const seenCommuneIds = new Set<string>();
-        const communeGeoms: GeoJSON.MultiPolygon[] = [];
-        for (const commune of aop.communes) {
-          if (!commune.geometry || seenCommuneIds.has(commune.id)) continue;
-          seenCommuneIds.add(commune.id);
-          const normalized = normalizeToMultiPolygon(commune.geometry);
-          if (normalized) communeGeoms.push(normalized);
-        }
-
-        const mergedFromCommunes = unionMultiPolygons(communeGeoms);
-        const centroid = validCentroidLngLat(aop.centroid_lng, aop.centroid_lat);
-
-        let displayGeometry: GeoJSON.MultiPolygon | null = mergedFromCommunes;
-        let usesSubregionGeometryFallback = false;
-
-        if (!displayGeometry && !centroid && communeGeoms.length === 0 && aop.subregion_id) {
-          const parentSub = subregionRowsRef.current.find(
-            (s) => s.id === aop.subregion_id,
-          );
-          if (parentSub?.geojson) {
-            displayGeometry = normalizeToMultiPolygon(parentSub.geojson);
-            usesSubregionGeometryFallback = true;
-            if (shouldDebugAopMap) {
-              console.info("[aop-map][render] subregion geometry fallback", {
-                id: aop.id,
-                slug: aop.slug,
-                subregion_id: aop.subregion_id,
-              });
-            }
-          }
-        }
-
-        const labelLng = centroid?.[0];
-        const labelLat = centroid?.[1];
-
-        if (centroid) {
-          centroidPointFeatures.push({
-            type: "Feature",
-            id: aop.id,
-            geometry: { type: "Point", coordinates: centroid },
+      const features = aops
+        .map((aop) => {
+          const normalized = normalizeToMultiPolygon(aop.geometry);
+          if (!normalized) return null;
+          const color =
+            CONTRAST_SUBREGION_COLORS[
+              Math.abs(aop.aop_id) % CONTRAST_SUBREGION_COLORS.length
+            ];
+          return {
+            type: "Feature" as const,
+            id: aop.aop_id,
             properties: {
-              appellation_id: aop.id,
-              appellation_slug: aop.slug,
-              appellation_name: displayLabel,
-              display_label: displayLabel,
-              subregion_id: aop.subregion_id,
+              aop_id: aop.aop_id,
+              aop_name: aop.aop_name,
               color_hex: color,
-              label_lng: labelLng,
-              label_lat: labelLat,
             },
-          });
-        }
+            geometry: normalized,
+          };
+        })
+        .filter((f): f is NonNullable<typeof f> => Boolean(f));
 
-        if (!displayGeometry) {
-          if (centroid) {
-            centroidFallbackPolyFeatures.push({
-              type: "Feature",
-              id: aop.id,
-              geometry: buildCentroidFallbackPolygon(
-                centroid[0],
-                centroid[1],
-                aop.id,
-              ),
-              properties: {
-                appellation_id: aop.id,
-                appellation_slug: aop.slug,
-                appellation_name: displayLabel,
-                display_label: displayLabel,
-                subregion_id: aop.subregion_id,
-                color_hex: color,
-                uses_subregion_geometry_fallback: false,
-                is_centroid_fallback_poly: true,
-                ...(labelLng != null && labelLat != null
-                  ? { label_lng: labelLng, label_lat: labelLat }
-                  : {}),
-              },
-            });
-          } else if (shouldDebugAopMap) {
-            console.warn("[aop-map][render] skipped appellation (no geometry)", {
-              id: aop.id,
-              slug: aop.slug,
-              communeGeomCount: communeGeoms.length,
-            });
-          }
-          continue;
-        }
-
-        const baseProps: AopPolygonProperties = {
-          appellation_id: aop.id,
-          appellation_slug: aop.slug,
-          appellation_name: displayLabel,
-          display_label: displayLabel,
-          subregion_id: aop.subregion_id,
-          color_hex: color,
-          uses_subregion_geometry_fallback: usesSubregionGeometryFallback,
-        };
-        if (labelLng != null && labelLat != null) {
-          baseProps.label_lng = labelLng;
-          baseProps.label_lat = labelLat;
-        }
-
-        const feat = {
-          type: "Feature" as const,
-          id: aop.id,
-          properties: baseProps,
-          geometry: displayGeometry,
-        };
-
-        if (usesSubregionGeometryFallback) {
-          fallbackFirstFeatures.push(feat);
-        } else {
-          communeFeatures.push(feat);
-        }
-      }
-
-      const polygonFeatures = [...fallbackFirstFeatures, ...communeFeatures];
-
-      if (shouldDebugAopMap) {
-        console.info("[aop-map][render] features built", {
-          polygonCount: polygonFeatures.length,
-          centroidFallbackPolyCount: centroidFallbackPolyFeatures.length,
-          centroidPoints: centroidPointFeatures.length,
-        });
-      }
-
-      const hasPolygons = polygonFeatures.length > 0;
-      const hasCentroidFallbackPolys = centroidFallbackPolyFeatures.length > 0;
-      const hasCentroidPoints = centroidPointFeatures.length > 0;
-
-      if (hasPolygons) {
+      if (features.length > 0) {
         map.addSource(aopSourceId, {
           type: "geojson",
-          data: { type: "FeatureCollection", features: polygonFeatures },
+          data: { type: "FeatureCollection", features },
         });
 
         map.addLayer({
@@ -795,87 +486,13 @@ export function VignobleMap({
             "line-width": 0.5,
           },
         });
+
+        if (map.getLayer(subOutlineLayerId)) {
+          map.moveLayer(subOutlineLayerId);
+        }
       }
 
-      if (hasCentroidFallbackPolys) {
-        map.addSource(aopFallbackSourceId, {
-          type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: centroidFallbackPolyFeatures,
-          },
-        });
-
-        map.addLayer({
-          id: aopFallbackFillLayerId,
-          type: "fill",
-          source: aopFallbackSourceId,
-          paint: {
-            "fill-color": ["get", "color_hex"],
-            "fill-opacity": 0.72,
-          },
-        });
-
-        map.addLayer({
-          id: aopFallbackOutlineLayerId,
-          type: "line",
-          source: aopFallbackSourceId,
-          paint: {
-            "line-color": "rgba(0,0,0,0.22)",
-            "line-width": 1.2,
-          },
-        });
-      }
-
-      if (hasCentroidPoints) {
-        map.addSource(aopPointsSourceId, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: centroidPointFeatures },
-        });
-
-        map.addLayer({
-          id: aopLabelLayerId,
-          type: "symbol",
-          source: aopPointsSourceId,
-          layout: {
-            "text-field": ["get", "display_label"],
-            "text-font": [
-              "Open Sans Semibold",
-              "Arial Unicode MS Regular",
-            ],
-            "text-size": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              8,
-              9,
-              12,
-              10.5,
-              16,
-              12,
-            ],
-            "text-anchor": "center",
-            "text-allow-overlap": false,
-            "text-ignore-placement": false,
-            "text-padding": 8,
-            "text-max-width": 14,
-          },
-          paint: {
-            "text-color": "#7c2736",
-            "text-halo-color": "#fffded",
-            "text-halo-width": 1.1,
-            "text-halo-blur": 0.2,
-            "text-opacity": 0.92,
-          },
-          minzoom: 9,
-        });
-      }
-
-      if (map.getLayer(subOutlineLayerId)) {
-        map.moveLayer(subOutlineLayerId);
-      }
-
-      let hoveredAppellationId: string | null = null;
+      let hoveredAopId: number | null = null;
 
       const mapboxglMod: any = await import("mapbox-gl");
       const mapboxgl = mapboxglMod.default ?? mapboxglMod;
@@ -887,135 +504,24 @@ export function VignobleMap({
         className: "vignoble-aop-tooltip",
       });
 
-      const isSubregionGeometryFallbackFeature = (f: any) => {
-        const v = f?.properties?.uses_subregion_geometry_fallback;
-        return v === true || v === "true";
-      };
-
-      const activeAopPickLayers = (): string[] => {
-        const ids: string[] = [];
-        if (map.getLayer(aopFallbackFillLayerId)) {
-          ids.push(aopFallbackFillLayerId);
-        }
-        if (map.getLayer(aopFallbackOutlineLayerId)) {
-          ids.push(aopFallbackOutlineLayerId);
-        }
-        if (map.getLayer(aopFillLayerId)) ids.push(aopFillLayerId);
-        if (map.getLayer(aopLabelLayerId)) ids.push(aopLabelLayerId);
-        return ids;
-      };
-
-      /** Centroid-fallback polys are above commune fills so they win hits; then commune, then subregion fallback; labels last. */
-      const pickAopFeatureAtPoint = (point: { x: number; y: number }) => {
-        const layers = activeAopPickLayers();
-        if (layers.length === 0) return null;
-        const stack = map.queryRenderedFeatures(point, {
-          layers,
-        }) as any[];
-        if (!stack?.length) return null;
-        const fallbackHit = stack.find(
-          (f) =>
-            f.layer?.id === aopFallbackFillLayerId ||
-            f.layer?.id === aopFallbackOutlineLayerId,
-        );
-        if (fallbackHit) return fallbackHit;
-        const fillNonSub = stack.find(
-          (f) =>
-            f.layer?.id === aopFillLayerId &&
-            !isSubregionGeometryFallbackFeature(f),
-        );
-        if (fillNonSub) return fillNonSub;
-        const fillAny = stack.find((f) => f.layer?.id === aopFillLayerId);
-        if (fillAny) return fillAny;
-        return stack[0];
-      };
-
       const resetAopHoverPaint = () => {
         if (map.getLayer(aopFillLayerId)) {
           map.setPaintProperty(aopFillLayerId, "fill-opacity", 0.58);
         }
         if (map.getLayer(aopOutlineLayerId)) {
           map.setPaintProperty(aopOutlineLayerId, "line-width", 0.5);
-          map.setPaintProperty(
-            aopOutlineLayerId,
-            "line-color",
-            "rgba(0,0,0,0.10)",
-          );
+          map.setPaintProperty(aopOutlineLayerId, "line-color", "rgba(0,0,0,0.10)");
         }
-        if (map.getLayer(aopFallbackFillLayerId)) {
-          map.setPaintProperty(aopFallbackFillLayerId, "fill-opacity", 0.72);
-        }
-        if (map.getLayer(aopFallbackOutlineLayerId)) {
-          map.setPaintProperty(aopFallbackOutlineLayerId, "line-width", 1.2);
-          map.setPaintProperty(
-            aopFallbackOutlineLayerId,
-            "line-color",
-            "rgba(0,0,0,0.22)",
-          );
-        }
-      };
-
-      const applyAopHoverPaint = (appId: string) => {
-        if (map.getLayer(aopFillLayerId)) {
-          map.setPaintProperty(aopFillLayerId, "fill-opacity", [
-            "case",
-            ["==", ["get", "appellation_id"], appId],
-            0.8,
-            0.4,
-          ]);
-        }
-        if (map.getLayer(aopOutlineLayerId)) {
-          map.setPaintProperty(aopOutlineLayerId, "line-width", [
-            "case",
-            ["==", ["get", "appellation_id"], appId],
-            1.6,
-            0.5,
-          ]);
-          map.setPaintProperty(aopOutlineLayerId, "line-color", [
-            "case",
-            ["==", ["get", "appellation_id"], appId],
-            "rgba(0,0,0,0.32)",
-            "rgba(0,0,0,0.10)",
-          ]);
-        }
-        if (map.getLayer(aopFallbackFillLayerId)) {
-          map.setPaintProperty(aopFallbackFillLayerId, "fill-opacity", [
-            "case",
-            ["==", ["get", "appellation_id"], appId],
-            0.88,
-            0.72,
-          ]);
-        }
-        if (map.getLayer(aopFallbackOutlineLayerId)) {
-          map.setPaintProperty(aopFallbackOutlineLayerId, "line-width", [
-            "case",
-            ["==", ["get", "appellation_id"], appId],
-            2,
-            1.2,
-          ]);
-          map.setPaintProperty(aopFallbackOutlineLayerId, "line-color", [
-            "case",
-            ["==", ["get", "appellation_id"], appId],
-            "rgba(0,0,0,0.38)",
-            "rgba(0,0,0,0.22)",
-          ]);
-        }
-      };
-
-      const tooltipAnchor = (feature: any, fallback: { lng: number; lat: number }) => {
-        const lng = feature?.properties?.label_lng;
-        const lat = feature?.properties?.label_lat;
-        if (typeof lng === "number" && typeof lat === "number") {
-          return [lng, lat] as [number, number];
-        }
-        return [fallback.lng, fallback.lat] as [number, number];
       };
 
       const onAopPointerMove = (e: any) => {
-        const feature = pickAopFeatureAtPoint(e.point);
+        const feats = map.queryRenderedFeatures(e.point, {
+          layers: [aopFillLayerId],
+        }) as any[];
+        const feature = feats?.[0];
         if (!feature) {
-          if (hoveredAppellationId !== null) {
-            hoveredAppellationId = null;
+          if (hoveredAopId !== null) {
+            hoveredAopId = null;
             resetAopHoverPaint();
             tooltip.remove();
             map.getCanvas().style.cursor = "";
@@ -1023,17 +529,37 @@ export function VignobleMap({
           return;
         }
 
-        const newAppId = feature.properties?.appellation_id as string | undefined;
-        const appName = (feature.properties?.display_label ??
-          feature.properties?.appellation_name) as string | undefined;
+        const newAopId = feature.id as number | undefined;
+        const aopName = feature.properties?.aop_name as string | undefined;
 
-        if (newAppId && newAppId !== hoveredAppellationId) {
-          hoveredAppellationId = newAppId;
-          applyAopHoverPaint(newAppId);
+        if (newAopId != null && newAopId !== hoveredAopId) {
+          hoveredAopId = newAopId;
+          if (map.getLayer(aopFillLayerId)) {
+            map.setPaintProperty(aopFillLayerId, "fill-opacity", [
+              "case",
+              ["==", ["id"], newAopId],
+              0.8,
+              0.4,
+            ]);
+          }
+          if (map.getLayer(aopOutlineLayerId)) {
+            map.setPaintProperty(aopOutlineLayerId, "line-width", [
+              "case",
+              ["==", ["id"], newAopId],
+              1.6,
+              0.5,
+            ]);
+            map.setPaintProperty(aopOutlineLayerId, "line-color", [
+              "case",
+              ["==", ["id"], newAopId],
+              "rgba(0,0,0,0.32)",
+              "rgba(0,0,0,0.10)",
+            ]);
+          }
         }
 
         tooltip
-          .setLngLat(tooltipAnchor(feature, e.lngLat))
+          .setLngLat(e.lngLat)
           .setHTML(
             `<div style="
               font-family:'Times New Roman',serif;
@@ -1042,7 +568,7 @@ export function VignobleMap({
               color:#7c2736;
               padding:4px 10px;
               white-space:nowrap;
-            ">${appName ?? ""}</div>`,
+            ">${aopName ?? ""}</div>`,
           )
           .addTo(map);
 
@@ -1050,36 +576,18 @@ export function VignobleMap({
       };
 
       const onAopPointerLeave = () => {
-        hoveredAppellationId = null;
+        hoveredAopId = null;
         resetAopHoverPaint();
         tooltip.remove();
         map.getCanvas().style.cursor = "";
       };
 
-      const onAopClick = (e: any) => {
-        const feature = pickAopFeatureAtPoint(e.point);
-        if (!feature) return;
-
-        const slug = feature.properties?.appellation_slug as string | undefined;
-        if (!slug || !selectedRegion) return;
-
-        const subregionId = feature.properties?.subregion_id as string | undefined;
-        const sub = subregionId
-          ? subregionRowsRef.current.find((s) => s.id === subregionId)
-          : null;
-
-        const targetUrl = `/vignoble/${selectedRegion.region_slug}/${slug}?from=map${sub ? `&subregion=${sub.slug}` : ""}`;
-        window.location.href = targetUrl;
-      };
-
       map.on("mousemove", onAopPointerMove);
       map.on("mouseout", onAopPointerLeave);
-      map.on("click", onAopClick);
 
       aopInteractionHandlersRef.current = [
         { event: "mousemove", layerId: null, handler: onAopPointerMove },
         { event: "mouseout", layerId: null, handler: onAopPointerLeave },
-        { event: "click", layerId: null, handler: onAopClick },
       ];
 
       aopPopupRef.current = tooltip;
@@ -1106,6 +614,8 @@ export function VignobleMap({
     const map = mapRef.current;
     if (!map) return;
 
+    const region = regionById.get(regionId);
+    currentRegionBboxRef.current = region ? getRegionBounds(region) : null;
     setSubregionsLoading(true);
     try {
       const rows = await getSubregionsByRegionId(regionId);
@@ -1156,7 +666,6 @@ export function VignobleMap({
       setAopVisible(false);
       aopVisibleRef.current = false;
       setSelectedSubregionId(null);
-      currentSubregionIdsRef.current = rows.map((r) => r.id);
       subregionRowsRef.current = rows
         .map((sr, idx) => {
           const geo = normalizeToMultiPolygon(sr.geojson);
@@ -1174,9 +683,6 @@ export function VignobleMap({
           };
         })
         .filter((r): r is NonNullable<typeof r> => Boolean(r));
-      subregionColorByIdRef.current = new Map(
-        subregionRowsRef.current.map((row) => [row.id, row.colorHex]),
-      );
 
       const focusSubregionIdFromSlug =
         options?.focusSubregionSlug
@@ -1341,37 +847,6 @@ export function VignobleMap({
     }
   }
 
-  useEffect(() => {
-    if (!aopVisible) return;
-    const map = mapRef.current;
-    if (!map) return;
-    if (
-      !map.getSource(aopSourceId) &&
-      !map.getSource(aopFallbackSourceId) &&
-      !map.getSource(aopPointsSourceId)
-    ) {
-      return;
-    }
-
-    const nextFilter = selectedSubregionId
-      ? ["==", ["get", "subregion_id"], selectedSubregionId]
-      : null;
-    const aopLayers = [
-      aopFillLayerId,
-      aopOutlineLayerId,
-      aopFallbackFillLayerId,
-      aopFallbackOutlineLayerId,
-      aopLabelLayerId,
-    ];
-    for (const layerId of aopLayers) {
-      if (map.getLayer(layerId)) {
-        map.setFilter(layerId, nextFilter as any);
-      }
-    }
-    if (map.getLayer(subOutlineLayerId)) {
-      map.moveLayer(subOutlineLayerId);
-    }
-  }, [aopVisible, selectedSubregionId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1438,7 +913,7 @@ export function VignobleMap({
     setAopVisible(false);
     aopVisibleRef.current = false;
     setSelectedSubregionId(null);
-    currentSubregionIdsRef.current = [];
+    currentRegionBboxRef.current = null;
     currentRegionSubregionsBoundsRef.current = null;
     subregionRowsRef.current = [];
 
@@ -1471,6 +946,8 @@ export function VignobleMap({
       if (cancelled) return;
 
       mapboxgl.accessToken = token;
+      // Attempt to disable Mapbox telemetry (getter-only in v3, so swallow the error).
+      try { if (mapboxgl.config) mapboxgl.config.EVENTS_URL = ""; } catch { /* ignore */ }
 
       map = new mapboxgl.Map({
         container: containerRef.current,

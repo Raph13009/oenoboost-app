@@ -496,6 +496,20 @@
 - Tautavel
 - Vingrau
 
+## Fitou
+
+## Grand Roussillon
+
+## Muscat de Rivesaltes
+
+## Muscat de Frontignan
+
+## Muscat de Lunel
+
+## Muscat de Mireval
+
+## Muscat de Saint-Jean-de-Minervois
+
 ## Rivesaltes
 - Cascastel-des-Corbières
 - Caves

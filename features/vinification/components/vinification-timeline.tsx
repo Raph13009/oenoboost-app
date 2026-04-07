@@ -128,27 +128,21 @@ function StepCard({
   const detailBlock = hasDetail ? (
     <div
       className={cn(
-        "grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none",
-        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        "overflow-hidden transition-[max-height,opacity,padding] duration-300 ease-out motion-reduce:transition-none",
+        open ? "max-h-[42rem] pt-4 opacity-100" : "max-h-0 pt-0 opacity-0",
       )}
+      aria-hidden={!open}
     >
-      <div className="min-h-0 overflow-hidden">
-        <div
-          className={cn(
-            "border-t border-border/40 pt-4 transition-opacity duration-300 ease-out motion-reduce:transition-none",
-            open ? "opacity-100" : "opacity-0",
-          )}
+      <div className="border-t border-border/40 pt-4">
+        <PremiumGate
+          isPremium={isContentPremium}
+          userPlan={userPlan}
+          variant="inline"
+          inlineLockedTitle={labels.detailLockedTitle}
+          inlineLockedDescription={labels.detailLockedBody}
         >
-          <PremiumGate
-            isPremium={isContentPremium}
-            userPlan={userPlan}
-            variant="inline"
-            inlineLockedTitle={labels.detailLockedTitle}
-            inlineLockedDescription={labels.detailLockedBody}
-          >
-            {detailBody}
-          </PremiumGate>
-        </div>
+          {detailBody}
+        </PremiumGate>
       </div>
     </div>
   ) : null;

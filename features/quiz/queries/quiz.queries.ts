@@ -48,6 +48,7 @@ const QUIZ_QUESTION_SELECT =
 
 export async function getQuizCatalogSummariesForUser(
   userId: string,
+  userPlan: "free" | "premium",
 ): Promise<QuizCatalogSummary[]> {
   const supabase = await createClient();
   const { data: quizzes, error } = await supabase
@@ -109,12 +110,14 @@ export async function getQuizCatalogSummariesForUser(
     const completedCount = completedQuizIdsByType.get(type)?.size ?? 0;
     const totalPublished = counts.length;
 
+    const isLockedByPlan = userPlan !== "premium" && type !== "beginner";
+
     return {
       type,
       totalPublished,
       completedCount,
       remainingCount: Math.max(0, totalPublished - completedCount),
-      available: totalPublished > 0,
+      available: totalPublished > 0 && !isLockedByPlan,
       questionCount: uniqueCounts.length === 1 ? uniqueCounts[0] : null,
       lastCompletedAt: lastCompletedAtByType.get(type) ?? null,
       lastQuizId: lastQuizIdByType.get(type) ?? null,

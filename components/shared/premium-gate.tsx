@@ -35,6 +35,9 @@ export function PremiumGate({
   const copy = locale === "en" ? enDict.paywall : frDict.paywall;
   const locked = isPremium && userPlan !== "premium";
   const buttonLabel = ctaLabel ?? copy.gateCta;
+  const blurPreviewClass = preview
+    ? "pointer-events-none select-none blur-[4px] opacity-50"
+    : undefined;
 
   if (!locked) {
     return <>{children}</>;
@@ -48,7 +51,7 @@ export function PremiumGate({
             <div
               className={cn(
                 "max-h-48 overflow-hidden transition duration-300 ease-out motion-reduce:transition-none md:max-h-56",
-                preview && "pointer-events-none select-none blur-[2px] opacity-65",
+                blurPreviewClass,
               )}
               aria-hidden="true"
             >
@@ -93,15 +96,15 @@ export function PremiumGate({
         <div
           className={cn(
             "transition duration-300",
-            preview && "pointer-events-none select-none blur-[2px] opacity-65",
+            blurPreviewClass,
           )}
           aria-hidden="true"
         >
           {children}
         </div>
 
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/45 via-black/20 to-transparent p-4">
-          <div className="w-full max-w-sm rounded-xl border border-white/30 bg-black/40 p-4 text-center text-white backdrop-blur-sm transition duration-300 group-hover:scale-[1.01]">
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/26 via-black/12 to-transparent p-4">
+          <div className="w-full max-w-sm rounded-xl border border-white/40 bg-black/24 p-4 text-center text-white backdrop-blur-sm transition duration-300 group-hover:scale-[1.01]">
             <p className="font-heading text-xl">{copy.gateTitle}</p>
             <p className="mt-1 text-sm text-white/85">{copy.gateBody}</p>
             <Button

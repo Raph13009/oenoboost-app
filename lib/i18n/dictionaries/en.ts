@@ -274,6 +274,7 @@ const en: Dictionary = {
     stateAvailable: "Start",
     stateReplay: "Replay",
     stateUnavailable: "Coming soon",
+    statePremium: "Premium only",
     progress: "Question {current} / {total}",
     scoreLabel: "Score",
     percentageLabel: "success rate",

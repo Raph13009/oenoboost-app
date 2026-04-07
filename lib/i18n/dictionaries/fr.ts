@@ -273,6 +273,7 @@ const fr = {
     stateAvailable: "Commencer",
     stateReplay: "Rejouer",
     stateUnavailable: "Bientôt disponible",
+    statePremium: "Premium uniquement",
     progress: "Question {current} / {total}",
     scoreLabel: "Score",
     percentageLabel: "de réussite",

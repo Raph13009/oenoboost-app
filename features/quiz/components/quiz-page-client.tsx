@@ -39,6 +39,7 @@ type QuizPageCopy = {
   stateAvailable: string;
   stateReplay: string;
   stateUnavailable: string;
+  statePremium: string;
   progress: string;
   scoreLabel: string;
   percentageLabel: string;
@@ -65,6 +66,7 @@ type QuizPageCopy = {
 type Props = {
   catalog: QuizCatalogSummary[];
   copy: QuizPageCopy;
+  userPlan: "free" | "premium";
   initialQuizType?: QuizType;
 };
 
@@ -115,7 +117,7 @@ function formatLastPlayed(lastCompletedAt: string | null, copy: QuizPageCopy): s
   }
 }
 
-export function QuizPageClient({ catalog, copy, initialQuizType }: Props) {
+export function QuizPageClient({ catalog, copy, userPlan, initialQuizType }: Props) {
   const [quiz, setQuiz] = useState<ActiveQuizState | null>(null);
   const [result, setResult] = useState<{
     quizType: QuizType;
@@ -296,7 +298,14 @@ export function QuizPageClient({ catalog, copy, initialQuizType }: Props) {
                 const hasHistory = Boolean(meta?.lastCompletedAt && meta?.lastQuizId);
                 const canStart = Boolean(meta?.available && (meta?.remainingCount ?? 0) > 0);
                 const disabled = !canStart || isStarting;
-                const stateLabel = hasHistory ? copy.stateReplay : canStart ? copy.stateAvailable : copy.stateUnavailable;
+                const isPlanLocked = userPlan === "free" && quizType !== "beginner";
+                const stateLabel = isPlanLocked
+                  ? copy.statePremium
+                  : hasHistory
+                    ? copy.stateReplay
+                    : canStart
+                      ? copy.stateAvailable
+                      : copy.stateUnavailable;
 
                 return (
                   <button

@@ -24,7 +24,8 @@ export default async function QuizPage({
 
   const locale = await getServerLocale();
   const dict = await getDictionary(locale);
-  const catalog = await getQuizCatalogSummariesForUser(user.id);
+  const userPlan = user.plan === "premium" ? "premium" : "free";
+  const catalog = await getQuizCatalogSummariesForUser(user.id, userPlan);
 
   const qp = (await searchParams) ?? {};
   const maybeType = qp.type;
@@ -35,6 +36,7 @@ export default async function QuizPage({
   return (
     <QuizPageClient
       catalog={catalog}
+      userPlan={userPlan}
       initialQuizType={initialQuizType}
       copy={{
         title: dict.quiz.title,
@@ -56,6 +58,7 @@ export default async function QuizPage({
         stateAvailable: dict.quiz.stateAvailable,
         stateReplay: dict.quiz.stateReplay,
         stateUnavailable: dict.quiz.stateUnavailable,
+        statePremium: dict.quiz.statePremium,
         progress: dict.quiz.progress,
         scoreLabel: dict.quiz.scoreLabel,
         percentageLabel: dict.quiz.percentageLabel,

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getContent } from "@/lib/i18n/get-content";
 import { getServerLocale } from "@/lib/i18n/server";
 import { QUIZ_COMPLETION_XP, getLevel } from "@/features/gamification/levels";
@@ -46,6 +47,7 @@ function createAdminClient() {
 
 type QuizActionError =
   | "AUTH_REQUIRED"
+  | "PREMIUM_REQUIRED"
   | "QUIZ_NOT_FOUND"
   | "ALL_QUIZZES_COMPLETED"
   | "SESSION_NOT_FOUND"
@@ -83,6 +85,7 @@ function getQuizErrorMessage(
     locale === "en"
       ? {
           AUTH_REQUIRED: "You must be signed in to start or complete a quiz.",
+          PREMIUM_REQUIRED: "This quiz level is reserved for Premium members.",
           QUIZ_NOT_FOUND: "No published quiz is available for this level.",
           ALL_QUIZZES_COMPLETED: "All quizzes for this level have already been completed.",
           SESSION_NOT_FOUND: "Quiz session not found.",
@@ -95,6 +98,7 @@ function getQuizErrorMessage(
         }
       : {
           AUTH_REQUIRED: "Vous devez être connecté pour lancer ou terminer un quiz.",
+          PREMIUM_REQUIRED: "Ce niveau de quiz est réservé aux membres Premium.",
           QUIZ_NOT_FOUND: "Aucun quiz publié n'est disponible pour ce niveau.",
           ALL_QUIZZES_COMPLETED: "Tous les quiz de ce niveau ont déjà été terminés.",
           SESSION_NOT_FOUND: "Session de quiz introuvable.",
@@ -303,6 +307,16 @@ export async function startQuizAction(
     };
   }
 
+  const currentUser = await getCurrentUser();
+  const isPremium = currentUser?.plan === "premium";
+  if (quizType !== "beginner" && !isPremium) {
+    return {
+      ok: false,
+      error: "PREMIUM_REQUIRED",
+      message: getQuizErrorMessage(locale, "PREMIUM_REQUIRED"),
+    };
+  }
+
   try {
     logQuizStep("info", "start.quiz.lookup", { quizType, userId: user.id });
     const quiz = await getRandomPublishedQuizByType(quizType, user.id);
@@ -361,6 +375,9 @@ export async function replayQuizAction(
     };
   }
 
+  const currentUser = await getCurrentUser();
+  const isPremium = currentUser?.plan === "premium";
+
   try {
     logQuizStep("info", "replay.quiz.lookup", { quizId, userId: user.id });
     const quiz = await getPublishedQuizById(quizId);
@@ -370,6 +387,14 @@ export async function replayQuizAction(
         ok: false,
         error: "QUIZ_NOT_FOUND",
         message: getQuizErrorMessage(locale, "QUIZ_NOT_FOUND"),
+      };
+    }
+
+    if (quiz.type !== "beginner" && !isPremium) {
+      return {
+        ok: false,
+        error: "PREMIUM_REQUIRED",
+        message: getQuizErrorMessage(locale, "PREMIUM_REQUIRED"),
       };
     }
 

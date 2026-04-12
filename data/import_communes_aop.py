@@ -53,79 +53,32 @@ with open(COMAGRI, encoding="latin1") as f:
         comagri_aops[ida] = name
         comagri_links.append((ci, ida))
 
-# Build a lookup: normalized name → ida
-norm_to_ida: dict[str, int] = {normalize(name): ida for ida, name in comagri_aops.items()}
-
-# ── 2. Extract wine AOP headings from .md files ───────────────────────────────
-
-# Manual overrides: md heading (exact) → list of comagri IDAs
-# Used when automatic normalization cannot find a match.
-MANUAL: dict[str, list[int]] = {
-    "Alsace":                                         [1],    # "Alsace suivi dun nom de lieu-dit"
-    "Alsace Grand Cru":                               [],     # category heading only; individual grand crus matched separately
-    "Beaujolais Blanc":                               [250],  # same area as Beaujolais
-    "Champagne — Grand Cru":                          [54],
-    "Champagne — Premier Cru":                        [54],
-    "Champagne — Côte des Bar (Bar-sur-Aube)":        [54],
-    "Champagne — Côte des Bar (Bar-sur-Seine)":       [54],
-    "Champagne — Côte des Blancs":                    [54],
-    "Champagne — Côte du Sézannais":                  [54],
-    "Champagne — Haute-Marne":                        [54],
-    "Champagne — Montagne de Reims (autres communes)":[54],
-    "Champagne — Vallée de la Marne (Aisne)":         [54],
-    "Champagne — Vallée de la Marne (Marne)":         [54],
-    "Champagne — Vallée de la Marne (Seine-et-Marne)":[54],
-    "Champagne — Vitryat":                            [54],
-    "Clairette de Die / Crémant de Die":              [1281, 1871],
-    "Haut-Benauge":                                   [82],   # Entre-deux-Mers Haut-Benauge
-    "L'Étoile":                                       [606],  # L'Etoile
-    "Muscadet Sèvre-et-Maine":                        [195],
-    "Pouilly-Fumé / Pouilly-sur-Loire":               [196],
-    "Muscat de Frontignan":                            [1333],  # comagri: "Muscat de Frontignan ou Frontignan ou Vin de Frontignan"
-    "Rasteau (VDN)":                                  [1341],
-    "Vin de Corse":                                   [1325],
-    "Vin de Corse — Calvi":                           [1326],
-    "Vin de Corse — Coteaux du Cap Corse":            [1327],
-    "Vin de Corse — Figari":                          [1328],
-    "Vin de Corse — Porto-Vecchio":                   [1329],
-    "Vin de Corse — Sartène":                         [1330],
-    "Bourgogne — Montrecul / Montre-Cul / En Montre-Cul": [348],
-    "Pouilly-Loché":                                  [1008],
+# ── 2. Select all wine AOPs (exclude known non-wine categories) ───────────────
+# Rather than maintaining a whitelist of md headings, we exclude the small set
+# of non-wine AOPs (dairy, poultry, oils, honey, etc.) present in the comagri
+# dataset and accept everything else as wine/spirits.
+NON_WINE_KEYWORDS: set[str] = {
+    "fromage", "beurre", "creme", "huile", "olive",
+    "lentille", "noix", "chataigne",
+    "agneau", "veau", "volaille", "poulet", "dinde", "porc", "jambon", "saucisse",
+    "moutarde", "vinaigre",
+    "cidre", "calvados", "poire", "pomme",
+    "cerise", "prune", "melon",
+    "ail", "safran", "miel", "lavande", "foin",
+    "farine", "pain", "charcuterie",
+    "poisson", "coquille", "huitre", "moule",
+    "sel", "truffe",
 }
 
 allowed_idas: set[int] = set()
-unresolved: list[str] = []
-
-for fname in sorted(os.listdir(AOC_DIR)):
-    if fname == "REGION_TEMPLATE.md" or not fname.endswith(".md"):
+for ida, name in comagri_aops.items():
+    if ida == 0:
         continue
-    with open(f"{AOC_DIR}/{fname}", encoding="utf-8") as f:
-        for line in f:
-            m = re.match(r"^## (.+)", line.strip())
-            if not m:
-                continue
-            heading = m.group(1).strip()
+    words = set(normalize(name).split())
+    if not (words & NON_WINE_KEYWORDS):
+        allowed_idas.add(ida)
 
-            # Try manual override first
-            if heading in MANUAL:
-                allowed_idas.update(MANUAL[heading])
-                continue
-
-            # Try automatic normalization match
-            key = normalize(heading)
-            if key in norm_to_ida:
-                allowed_idas.add(norm_to_ida[key])
-                continue
-
-            unresolved.append(heading)
-
-if unresolved:
-    print(f"-- WARNING: {len(unresolved)} md headings could not be matched to a comagri AOP:", file=sys.stderr)
-    for h in sorted(unresolved):
-        print(f"--   {h!r}", file=sys.stderr)
-
-allowed_idas.discard(0)  # safety: remove any accidental zero
-print(f"-- Matched {len(allowed_idas)} wine AOPs from md files", file=sys.stderr)
+print(f"-- Found {len(allowed_idas)} wine AOPs from comagri data", file=sys.stderr)
 
 # ── 3. Load communes (name from v_commune_2026) ───────────────────────────────
 communes: dict[str, str] = {}

@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """
-Generates SQL INSERT statements to populate communes_full, aop, and communes_full_aop_link.
-Only wine AOPs (those matching headings in data/appellations/*.md) are included.
+Generates SQL INSERT statements to populate communes_full, aop, and
+communes_full_aop_link.
+
+The source of truth for which AOPs to include is
+`data/appellations/aop-list-full.txt`. Every entry in that list must resolve
+to at least one IDA in the comagri dataset; unresolved entries are printed to
+stderr and abort the run.
 
 Usage:
   python3 data/import_communes_aop.py > /tmp/communes_aop_data.sql
@@ -20,7 +25,7 @@ DATA_DIR  = "data"
 COMAGRI   = f"{DATA_DIR}/2025-10-09-comagri-communes-aires-ao.csv"
 COMMUNES  = f"{DATA_DIR}/v_commune_2026.csv"
 GEOJSON   = f"{DATA_DIR}/communes-1000m.geojson"
-AOC_DIR   = f"{DATA_DIR}/appellations"
+AOP_LIST  = f"{DATA_DIR}/appellations/aop-list-full.txt"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -53,118 +58,237 @@ with open(COMAGRI, encoding="latin1") as f:
         comagri_aops[ida] = name
         comagri_links.append((ci, ida))
 
-# Build a lookup: normalized name → ida
-norm_to_ida: dict[str, int] = {normalize(name): ida for ida, name in comagri_aops.items()}
+# Build lookup tables: direct normalized name → [ida], and " ou "-split → [ida]
+exact_by_norm: dict[str, list[int]] = {}
+split_by_norm: dict[str, list[int]] = {}
+for ida, name in comagri_aops.items():
+    cn = normalize(name)
+    exact_by_norm.setdefault(cn, []).append(ida)
+    if " ou " in cn:
+        for part in cn.split(" ou "):
+            split_by_norm.setdefault(part.strip(), []).append(ida)
 
-# ── 2. Extract wine AOP headings from .md files ───────────────────────────────
-
-# Manual overrides: md heading (exact) → list of comagri IDAs
-# Used when automatic normalization cannot find a match.
+# ── 2. Load authoritative AOP list and resolve each entry to comagri IDAs ─────
+# MANUAL entries cover cases where the authoritative name doesn't normalize to
+# a comagri name directly (historical names, varietal-scoped appellations that
+# share a parent AOP, renamed AOPs, etc.).
 MANUAL: dict[str, list[int]] = {
-    "Alsace":                                         [1],    # "Alsace suivi dun nom de lieu-dit"
-    "Alsace Grand Cru":                               [],     # category heading only; individual grand crus matched separately
-    "Beaujolais Blanc":                               [250],  # same area as Beaujolais
-    "Champagne — Grand Cru":                          [54],
-    "Champagne — Premier Cru":                        [54],
-    "Champagne — Côte des Bar (Bar-sur-Aube)":        [54],
-    "Champagne — Côte des Bar (Bar-sur-Seine)":       [54],
-    "Champagne — Côte des Blancs":                    [54],
-    "Champagne — Côte du Sézannais":                  [54],
-    "Champagne — Haute-Marne":                        [54],
-    "Champagne — Montagne de Reims (autres communes)":[54],
-    "Champagne — Vallée de la Marne (Aisne)":         [54],
-    "Champagne — Vallée de la Marne (Marne)":         [54],
-    "Champagne — Vallée de la Marne (Seine-et-Marne)":[54],
-    "Champagne — Vitryat":                            [54],
-    "Clairette de Die / Crémant de Die":              [1281, 1871],
-    "Haut-Benauge":                                   [82],
-    "L'Étoile":                                       [606],
-    "Muscadet Sèvre-et-Maine":                        [195],
-    "Pouilly-Fumé / Pouilly-sur-Loire":               [196],
-    "Muscat de Frontignan":                           [1333],
-    "Rasteau (VDN)":                                  [1341],
-    "Vin de Corse":                                   [1325],
-    "Vin de Corse — Calvi":                           [1326],
-    "Vin de Corse — Coteaux du Cap Corse":            [1327],
-    "Vin de Corse — Figari":                          [1328],
-    "Vin de Corse — Porto-Vecchio":                   [1329],
-    "Vin de Corse — Sartène":                         [1330],
-    "Bourgogne — Montrecul / Montre-Cul / En Montre-Cul": [348],
-    "Pouilly-Loché":                                  [1008],
+    # Alsace: all single-varietal or style-specific wines share AOP IDA 1
+    # ("Alsace suivi d'un nom de lieu-dit" is the comagri umbrella entry).
+    "ALSACE CHASSELAS OU GUTEDEL":      [1],
+    "ALSACE GEWURZTRAMINER":            [1],
+    "ALSACE MUSCAT":                    [1],
+    "ALSACE PINOT NOIR":                [1],
+    "ALSACE PINOT OU KLEVNER":          [1, 2],   # 2 = Alsace Klevener de Heiligenstein
+    "ALSACE RIESLING":                  [1],
+    "ALSACE SYLVANER":                  [1],
+    "ALSACE TOKAY-PINOT GRIS":          [1],
+    # Alsace grand cru: 51 individual lieux-dits (IDAs 3–52 + 1653).
+    "ALSACE GRAND CRU":                 list(range(3, 53)) + [1653],
+    # Beaujolais
+    "BEAUJOLAIS SUPERIEUR (nouveau)":   [250],
+    # Bordeaux: style/colour variants all share the base Bordeaux AOP (63).
+    "BORDEAUX CLAIRET":                 [63],
+    "BORDEAUX ROSE":                    [63],
+    "BORDEAUX SEC":                     [63],
+    # Historical names → current "Côtes de Bordeaux X" IDAs
+    "BORDEAUX COTES DE FRANCS":         [1893],
+    "COTES DE BLAYE":                   [1892],
+    "COTES DE CASTILLON":               [1891],
+    "PREMIERES COTES DE BLAYE":         [1892],
+    "SAINTE-FOIX-BORDEAUX":             [2422],
+    # Côtes de Bourg → "Côtes de Bourg, Bourg et Bourgeais" (IDA 66)
+    "COTES DE BOURG":                   [66],
+    # Graves Supérieures shares the Graves AOP (86)
+    "GRAVES SUPERIEURES":               [86],
+    # Moulis en Médoc = Moulis (IDA 2390)
+    "MOULIS EN MEDOC":                  [2390],
+    # Bourgogne
+    "BIENVENUE BATARD-MONTRACHET":      [326],   # comagri: Bienvenues-Bâtard-Montrachet
+    "BOURGOGNE ALIGOTE BOUZERON":       [1231],  # Bouzeron AOP
+    "BOURGOGNE CLARET":                 [2184],  # style variant of base Bourgogne
+    "BOURGOGNE GRAND ORDINAIRE":        [2184],  # ditto
+    "BOURGOGNE PASSETOUTGRAIN":         [1876],  # comagri: Bourgogne Passe-tout-grains
+    "BOURGOGNE VEZELAY":                [2428],  # renamed to simply "Vézelay"
+    "MACON SUPERIEUR":                  [2216],  # style variant of Mâcon
+    "NUIT-SAINT-GEORGES":               [926],   # typo in authoritative list
+    "POUILLY-LOCHE":                    [1008],  # comagri lists only "Pouilly-Loché premier cru"
+    # Rhône
+    "COTEAUX DE PIERREVERT":            [1851],  # now simply "Pierrevert"
+    "COTEAUX DU TRICASTIN":             [2123],  # renamed to "Grignan-les-Adhémar" in 2010
+    "COTES DU LUBERON":                 [1862],  # now "Luberon"
+    "COTES DU VENTOUX":                 [1305],  # now "Ventoux"
+    # Languedoc-Roussillon
+    "BANYULS GRAND CRU":                [1332],  # shares Banyuls AOP
+    "BLANQUETTE DE LIMOUX":             [1235],  # under Limoux AOP umbrella
+    "COTEAUX DU LANGUEDOC":             [2352],  # renamed to simply "Languedoc"
+    "COTES DE LA MALEPERE":             [1414],  # now "Malepère"
+    # Loire
+    "CABERNET D'ANJOU":                 [158],   # style variant of Anjou
+    "CHAUME":                           [2172],  # Coteaux du Layon premier cru Chaume
+    "FIEFS VENDEENS AOVDQS":            [2176, 2177, 2178, 2179, 2180],
+    "GROS PLANT AOVDQS":                [2171],  # Gros Plant du Pays nantais
+    "MONTLOUIS":                        [191],   # now "Montlouis-sur-Loire"
+    "MUSCADET COTES DE GRAND-LIEU":     [194],   # comagri: Muscadet Côtes de Grandlieu
+    "MUSCADET DE SEVRE-ET-MAINE":       [195],
+    "MUSCADET DES COTEAUX DE LA LOIRE": [2342],  # comagri: Muscadet Coteaux de la Loire
+    "POUILLY-SUR-LOIRE":                [196],   # shares Pouilly-Fumé AOP
+    "ROSE D'ANJOU":                     [158],   # style variant of Anjou
+    "SAUMUR SEC BLANC":                 [203],   # Saumur blancs et rosés
+    "SAVENNIERES COULEE-DE-SERRANT":    [2407],  # now simply "Coulée de Serrant"
+    "SAVENNIERES ROCHES-AUX-MOINES":    [208],
+    # Provence
+    "COTEAUX D'AIX":                    [1320],  # Coteaux d'Aix-en-Provence
+    # Sud-Ouest
+    "BERGERAC SEC":                     [61],    # style variant of Bergerac
+    "COTES DE BERGERAC MOELLEUX":       [1875],  # style variant
+    "COTES DE SAINT-MONT AOVDQS":       [1733],  # now simply "Saint-Mont"
+    "JURANCON SEC":                     [91],    # style variant of Jurançon
+    # Name collides with a cheese AOP (1491); we want only the wine (1596).
+    "VALENCAY AOVDQS":                  [1596],
+    # Saumur has two comagri IDAs (blancs/rosés + rouges) for the same
+    # geographic appellation. Include both explicitly so the ambiguity check
+    # doesn't complain.
+    "SAUMUR":                           [203, 204],
 }
 
-# Explicit list of non-wine IDAs present in the comagri dataset.
-# Built by manually classifying every AOP not already covered by an .md heading
-# (cheese, butter, meat, poultry, charcuterie, spirits, cider, olive oil,
-# fruits/vegetables, honey, chestnuts, mussels, wood, etc.).
-NON_WINE_IDAS: set[int] = {
-    # Spirits (Cognac, Armagnac, Calvados, eaux-de-vie, marcs, fines, pommeaux,
-    # kirsch, rhum, whisky, wood)
-    1347, 1348, 1349, 1350, 1351, 1352, 1353, 1354,
-    1362, 1363, 1438, 1449, 1450, 1676, 1737, 1887, 1888,
-    1946, 1947, 1952, 1953, 1955, 1956, 1957,
-    2132, 2133, 2137, 2367, 2373, 2374, 2375, 2378, 2379, 2451,
-    # Cider
-    1360, 1361, 1854, 2465,
-    # Cheese / dairy / cream
-    1454, 1455, 1456, 1457, 1459, 1460, 1461, 1462, 1463, 1464, 1465, 1466,
-    1467, 1468, 1469, 1470, 1471, 1472, 1473, 1474, 1475, 1476, 1477, 1478,
-    1480, 1481, 1482, 1483, 1484, 1485, 1486, 1487, 1490, 1491, 1492, 1494,
-    1495, 1496, 1518, 1647, 1720, 1948, 1951, 2222, 2223, 2514,
-    # Butter / cream
-    1488, 1489, 2225, 2339,
-    # Meat / poultry / charcuterie
-    1498, 1504, 1577, 1595, 1609, 1651, 1674, 1679, 1680, 1699, 1805, 1958,
-    1959, 2140, 2412, 2413, 2415,
-    # Olive / olive oil
-    1499, 1507, 1512, 1513, 1515, 1610, 1611, 1613, 1644, 1650, 1678, 1838,
-    # Fruits / vegetables / table grapes
-    1497, 1506, 1510, 1511, 1579, 1612, 1637, 1639, 1735, 1878, 2416,
-    # Nuts / chestnuts / chestnut flour / walnut oil
-    1501, 1516, 1618, 1638, 1706, 2464,
-    # Honey / hay / peppers / essential oils / lavender / mussels
-    1502, 1505, 1508, 1509, 1514, 1640,
-}
 
-# Use .md headings only for warnings/traceability. Allowed set = every comagri
-# AOP that isn't in NON_WINE_IDAS. MANUAL is still honored (needed for cases
-# where a heading maps to multiple IDAs, e.g. Alsace's lieu-dit IDA).
-md_matched_idas: set[int] = set()
+def resolve(entry: str) -> list[int]:
+    """Return the comagri IDA(s) for an authoritative-list entry, or []."""
+    if entry in MANUAL:
+        return MANUAL[entry]
+    # Strip the "AOVDQS" classifier anywhere in the entry; historical wines
+    # still exist as AOPs (the category was abolished in 2011).
+    clean = re.sub(r"\s+AOVDQS\b", "", entry).strip()
+    norm = normalize(clean)
+    if norm in exact_by_norm:
+        matches = exact_by_norm[norm]
+        # A collision on the normalized name usually means a non-wine AOP
+        # shares the same label (e.g. Valençay the cheese vs the wine).
+        # Force a MANUAL entry so we don't silently pick up the wrong IDA.
+        if len(matches) > 1:
+            raise SystemExit(
+                f"Ambiguous match for {entry!r}: normalized name {norm!r} "
+                f"resolves to multiple comagri IDAs {matches}. Add a MANUAL "
+                f"entry to select the correct one."
+            )
+        return matches
+    if norm in split_by_norm:
+        return split_by_norm[norm]
+    return []
+
+
+allowed_idas: set[int] = set()
 unresolved: list[str] = []
 
-for fname in sorted(os.listdir(AOC_DIR)):
-    if fname == "REGION_TEMPLATE.md" or not fname.endswith(".md"):
-        continue
-    with open(f"{AOC_DIR}/{fname}", encoding="utf-8") as f:
-        for line in f:
-            m = re.match(r"^## (.+)", line.strip())
-            if not m:
-                continue
-            heading = m.group(1).strip()
-            if heading in MANUAL:
-                md_matched_idas.update(MANUAL[heading])
-                continue
-            key = normalize(heading)
-            if key in norm_to_ida:
-                md_matched_idas.add(norm_to_ida[key])
-                continue
-            unresolved.append(heading)
+with open(AOP_LIST, encoding="utf-8") as f:
+    for line in f:
+        entry = line.strip()
+        # Skip empties and category headers (e.g. "Corse :")
+        if not entry or entry.endswith(":"):
+            continue
+        idas = resolve(entry)
+        if idas:
+            allowed_idas.update(idas)
+        else:
+            unresolved.append(entry)
 
 if unresolved:
-    print(f"-- WARNING: {len(unresolved)} md headings could not be matched to a comagri AOP:", file=sys.stderr)
-    for h in sorted(unresolved):
+    print(
+        f"-- ERROR: {len(unresolved)} authoritative-list entries did not resolve to any comagri AOP:",
+        file=sys.stderr,
+    )
+    for h in unresolved:
         print(f"--   {h!r}", file=sys.stderr)
-
-allowed_idas: set[int] = {
-    ida for ida in comagri_aops
-    if ida != 0 and ida not in NON_WINE_IDAS
-}
-# Sanity: every .md-matched IDA must be included (otherwise NON_WINE_IDAS is wrong).
-misclassified = md_matched_idas & NON_WINE_IDAS
-if misclassified:
-    print(f"-- ERROR: {len(misclassified)} md-matched IDAs are in NON_WINE_IDAS: {sorted(misclassified)}", file=sys.stderr)
     sys.exit(1)
-print(f"-- {len(allowed_idas)} wine AOPs ({len(md_matched_idas)} from .md, rest from comagri minus {len(NON_WINE_IDAS)} non-wine)", file=sys.stderr)
+
+allowed_idas.discard(0)
+
+# ── 2b. Integrity checks on the resolved set ──────────────────────────────────
+# Check 1: every IDA referenced by MANUAL must actually exist in comagri.
+# Catches typos like [1591] instead of [1596].
+bad_manual = {
+    entry: [ida for ida in idas if ida not in comagri_aops]
+    for entry, idas in MANUAL.items()
+    if any(ida not in comagri_aops for ida in idas)
+}
+if bad_manual:
+    print("-- ERROR: MANUAL entries reference IDAs that don't exist in comagri:", file=sys.stderr)
+    for entry, missing in bad_manual.items():
+        print(f"--   {entry!r} → missing IDAs {missing}", file=sys.stderr)
+    sys.exit(1)
+
+# Check 2: none of the resolved IDAs should look non-wine. Comagri mixes wine
+# AOPs with dairy, meat, oil, etc. — the comagri name will typically contain
+# a giveaway keyword (fromage, beurre, huile, jambon, …). If a resolved IDA's
+# name contains any of these, abort so a human can investigate.
+NON_WINE_KEYWORDS = {
+    # Each keyword is matched as a standalone word (whitespace boundaries)
+    # against the normalized comagri name, to avoid false positives like
+    # "bois" matching "Arbois" or "sel" matching "Sélestat".
+    # dairy / cream
+    "fromage", "beurre", "creme",
+    # oils
+    "huile",
+    # nuts / chestnuts / fruits / vegetables / flowers
+    "noix", "chataigne", "chataignes", "lentille", "lentilles", "oignon",
+    "oignons", "pomme", "pommes", "abricot", "abricots", "figue", "figues",
+    "cerise", "cerises", "melon", "melons", "safran", "ail", "lavande",
+    "raisin",
+    # meat / poultry / charcuterie
+    "agneau", "veau", "volaille", "poulet", "dinde", "porc", "jambon",
+    "saucisse", "charcuterie", "coppa", "lonzo", "taureau", "buf",
+    "pres-sales", "kintoa",
+    # spirits
+    "armagnac", "cognac", "calvados", "marc", "fine", "eau-de-vie",
+    "mirabelle", "kirsch", "rhum", "whisky", "pommeau", "floc",
+    # cider (all ciders are not wine)
+    "cidre",
+    # honey / hay / flour / bread / mussels / wood / salt / olives
+    "miel", "foin", "farine", "pain", "moules", "moule", "bois", "sel",
+    "olive", "olives",
+    # truffles
+    "truffe", "truffes",
+}
+# Specific non-wine IDAs whose comagri name wouldn't trip the keyword check
+# (e.g. cheese AOPs named simply "Abondance", "Brocciu", "Cantal"…).
+NON_WINE_BY_NAME = {
+    "abondance", "banon", "beaufort", "brocciu", "brousse du rove", "cantal",
+    "chabichou du poitou", "chaource", "charolais", "chasselas de moissac",
+    "chavignol", "chevrotin", "comte", "cornouaille", "domfront", "epoisses",
+    "fourme d ambert", "fourme de montbrison", "laguiole", "langres", "livarot",
+    "maroilles", "mont d or", "vacherin du haut doubs", "morbier", "mothais sur feuille",
+    "munster", "muscat du ventoux", "neufchatel", "ossau iraty", "pays d auge",
+    "picodon", "piment d espelette", "pont l eveque", "pouligny saint pierre",
+    "reblochon de savoie", "rigotte de condrieu", "rocamadour", "roquefort",
+    "saint nectaire", "sainte maure de touraine", "salers", "selles sur cher",
+    "tome des bauges", "kintoa",
+    # "Valençay" cheese (IDA 1491) — specifically excluded; wine (1596) is kept
+    # via MANUAL.
+}
+
+
+def looks_non_wine(comagri_name: str) -> bool:
+    n = normalize(comagri_name).lower()
+    if n in NON_WINE_BY_NAME:
+        return True
+    words = set(n.split())
+    return bool(words & NON_WINE_KEYWORDS)
+
+
+# Look for IDAs that match the wine Valençay; it's the only name-collision
+# where we need to be strict about which IDA out of a same-name pair is picked.
+suspect = [
+    (ida, comagri_aops[ida]) for ida in allowed_idas
+    if looks_non_wine(comagri_aops[ida])
+]
+if suspect:
+    print("-- ERROR: resolved IDAs look non-wine (check MANUAL mappings):", file=sys.stderr)
+    for ida, name in sorted(suspect):
+        print(f"--   {ida}  {name}", file=sys.stderr)
+    sys.exit(1)
+
+print(f"-- {len(allowed_idas)} AOPs resolved from the authoritative list", file=sys.stderr)
 
 # ── 3. Load communes (name from v_commune_2026) ───────────────────────────────
 communes: dict[str, str] = {}
@@ -195,15 +319,15 @@ out.write("-- Generated by import_communes_aop.py\n")
 out.write(f"-- {len(allowed_idas)} wine AOPs, {len(valid_codes)} communes\n")
 out.write("begin;\n\n")
 
-# Cleanup: drop any AOP that was previously imported but shouldn't be there
-# (non-wine IDAs from earlier keyword-based imports). Cascades to link table.
-out.write("-- Remove any non-wine AOPs left over from earlier imports\n")
-out.write("delete from public.aop where id in (\n")
-out.write(",\n".join(f"  {ida}" for ida in sorted(NON_WINE_IDAS)))
+# Cleanup: delete any AOP row that isn't in the current allowed set.
+# Cascades to communes_full_aop_link.
+out.write("-- Remove any AOP not in the current allowed set\n")
+out.write("delete from public.aop where id not in (\n")
+out.write(",\n".join(f"  {ida}" for ida in sorted(allowed_idas)))
 out.write("\n);\n\n")
 
 # Wine AOPs
-out.write("-- AOPs (wine only)\n")
+out.write("-- AOPs\n")
 out.write("insert into public.aop (id, name) values\n")
 aop_rows = [
     f"  ({ida}, '{escape(comagri_aops[ida])}')"

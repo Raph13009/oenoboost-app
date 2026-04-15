@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/client";
 export type AopMapItem = {
   aop_id: number;
   aop_name: string;
+  /** Precomputed geodesic area in m². Null only if the backfill hasn't run. */
+  area_m2: number | null;
   geometry: unknown;
 };
 

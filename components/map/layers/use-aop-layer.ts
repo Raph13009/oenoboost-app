@@ -5,9 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getAopCommunesInBbox } from "@/features/vignoble/queries/get-aop-communes-in-bbox";
 
-import { CONTRAST_SUBREGION_COLORS } from "../geo/color";
 import type { Bounds } from "../geo/geometry";
-import { normalizeToMultiPolygon } from "../geo/geometry";
+import { buildAopFeatures, pickSmallestFeature } from "./aop-features";
 import {
   aopFillLayerId,
   aopOutlineLayerId,
@@ -61,26 +60,9 @@ export function useAopLayer(map: any | null): UseAopLayerResult {
           bbox[1][1],
         ]);
 
-        const features = aops
-          .map((aop) => {
-            const normalized = normalizeToMultiPolygon(aop.geometry);
-            if (!normalized) return null;
-            const color =
-              CONTRAST_SUBREGION_COLORS[
-                Math.abs(aop.aop_id) % CONTRAST_SUBREGION_COLORS.length
-              ];
-            return {
-              type: "Feature" as const,
-              id: aop.aop_id,
-              properties: {
-                aop_id: aop.aop_id,
-                aop_name: aop.aop_name,
-                color_hex: color,
-              },
-              geometry: normalized,
-            };
-          })
-          .filter((f): f is NonNullable<typeof f> => Boolean(f));
+        // Sorted descending by area: smaller AOPs paint on top of larger ones
+        // so they remain visible (and clickable) where they overlap.
+        const features = buildAopFeatures(aops);
 
         if (features.length > 0) {
           map.addSource(aopSourceId, {
@@ -143,7 +125,10 @@ export function useAopLayer(map: any | null): UseAopLayerResult {
           const feats = map.queryRenderedFeatures(e.point, {
             layers: [aopFillLayerId],
           }) as any[];
-          const feature = feats?.[0];
+          // Pick the smallest AOP under the cursor rather than the topmost
+          // rendered feature. This keeps hover aligned with user intent even
+          // if rendering order ever drifts from area-descending.
+          const feature = pickSmallestFeature(feats);
           if (!feature) {
             if (hoveredAopId !== null) {
               hoveredAopId = null;

@@ -1,99 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { getRegionBySlug } from "./regions.queries";
 import { getAppellationBySlug } from "./appellations.queries";
-import type { WineSubregion } from "../types";
-
-type LinkAppellationRow = {
-  subregion_id: string | null;
-  appellation:
-    | {
-        id: string;
-        slug: string;
-        name_fr: string;
-        name_en: string;
-        area_hectares: number | null;
-        producer_count: number | null;
-        production_volume_hl: number | null;
-        price_range_min_eur: number | null;
-        price_range_max_eur: number | null;
-        history_fr: string | null;
-        history_en: string | null;
-        colors_grapes_fr: string | null;
-        colors_grapes_en: string | null;
-        soils_description_fr: string | null;
-        soils_description_en: string | null;
-        geojson: unknown | null;
-        centroid_lat: number | null;
-        centroid_lng: number | null;
-        is_premium: boolean;
-        status: string | null;
-        published_at: string | null;
-        created_at: string;
-        updated_at: string;
-        deleted_at: string | null;
-      }
-    | {
-        id: string;
-        slug: string;
-        name_fr: string;
-        name_en: string;
-        area_hectares: number | null;
-        producer_count: number | null;
-        production_volume_hl: number | null;
-        price_range_min_eur: number | null;
-        price_range_max_eur: number | null;
-        history_fr: string | null;
-        history_en: string | null;
-        colors_grapes_fr: string | null;
-        colors_grapes_en: string | null;
-        soils_description_fr: string | null;
-        soils_description_en: string | null;
-        geojson: unknown | null;
-        centroid_lat: number | null;
-        centroid_lng: number | null;
-        is_premium: boolean;
-        status: string | null;
-        published_at: string | null;
-        created_at: string;
-        updated_at: string;
-        deleted_at: string | null;
-      }[]
-    | null;
-};
-
-type AopRecord = {
-  id: string;
-  subregion_id: string;
-  slug: string;
-  name_fr: string;
-  name_en: string;
-  area_hectares: number | null;
-  producer_count: number | null;
-  production_volume_hl: number | null;
-  price_range_min_eur: number | null;
-  price_range_max_eur: number | null;
-  history_fr: string | null;
-  history_en: string | null;
-  colors_grapes_fr: string | null;
-  colors_grapes_en: string | null;
-  soils_description_fr: string | null;
-  soils_description_en: string | null;
-  geojson: unknown | null;
-  centroid_lat: number | null;
-  centroid_lng: number | null;
-  is_premium: boolean;
-  status: string;
-  published_at: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-};
+import type { Appellation, Subregion, WineRegion } from "../types";
 
 export type AopBrowseItem = {
-  id: string;
+  id: number;
   slug: string;
-  name_fr: string;
-  name_en: string;
+  name: string;
   area_hectares: number | null;
   subregion_slug: string;
   subregion_name_fr: string;
@@ -104,22 +17,20 @@ export type AopBrowseItem = {
 };
 
 type AopBrowseRow = {
-  appellation:
+  aop:
     | {
-        id: string;
+        id: number;
         slug: string;
-        name_fr: string;
-        name_en: string;
+        name: string;
         area_hectares: number | null;
         status: string | null;
         published_at: string | null;
         deleted_at: string | null;
       }
     | {
-        id: string;
+        id: number;
         slug: string;
-        name_fr: string;
-        name_en: string;
+        name: string;
         area_hectares: number | null;
         status: string | null;
         published_at: string | null;
@@ -128,7 +39,7 @@ type AopBrowseRow = {
     | null;
   subregion:
     | {
-        id: string;
+        id: number;
         slug: string;
         name_fr: string;
         name_en: string;
@@ -155,7 +66,7 @@ type AopBrowseRow = {
           | null;
       }
     | {
-        id: string;
+        id: number;
         slug: string;
         name_fr: string;
         name_en: string;
@@ -184,33 +95,14 @@ type AopBrowseRow = {
     | null;
 };
 
-async function getAppellationsBySubregionIds(subregionIds: string[]) {
-  if (subregionIds.length === 0) return [];
-  const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
-
-  let linksQuery = supabase
-    .from("appellation_subregion_links")
-    .select(
-      "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, area_hectares, producer_count, production_volume_hl, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, geojson, centroid_lat, centroid_lng, is_premium, status, published_at, created_at, updated_at, deleted_at)",
-    )
-    .in("subregion_id", subregionIds);
-
-  if (!includeDraft) {
-    linksQuery = linksQuery.or(
-      "status.eq.published,published_at.not.is.null",
-      { referencedTable: "appellation" },
-    );
-  }
-
-  const { data, error } = await linksQuery;
-  if (error) {
-    throw new Error(`Failed to fetch appellations: ${error.message}`);
-  }
-  return (data ?? []) as LinkAppellationRow[];
-}
-
-export async function getAopDetailByRegionAndSlug(regionSlug: string, aopSlug: string) {
+export async function getAopDetailByRegionAndSlug(
+  regionSlug: string,
+  aopSlug: string,
+): Promise<{
+  appellation: Appellation;
+  subregion: Subregion;
+  region: WineRegion;
+} | null> {
   const region = await getRegionBySlug(regionSlug);
   if (!region) return null;
 
@@ -219,9 +111,9 @@ export async function getAopDetailByRegionAndSlug(regionSlug: string, aopSlug: s
 
   const supabase = await createClient();
   const { data: links, error: linksError } = await supabase
-    .from("appellation_subregion_links")
+    .from("aop_subregion_link")
     .select("subregion_id")
-    .eq("appellation_id", appellation.id)
+    .eq("aop_id", appellation.id)
     .not("subregion_id", "is", null);
 
   if (linksError) {
@@ -229,14 +121,14 @@ export async function getAopDetailByRegionAndSlug(regionSlug: string, aopSlug: s
   }
 
   const subregionIds = (links ?? [])
-    .map((l) => l.subregion_id as string | null)
-    .filter((id): id is string => Boolean(id));
+    .map((l) => l.subregion_id as number | null)
+    .filter((id): id is number => typeof id === "number");
   if (subregionIds.length === 0) return null;
 
   const { data: subregions, error: subregionsError } = await supabase
-    .from("wine_subregions")
+    .from("subregions")
     .select(
-      "id, region_id, slug, name_fr, name_en, area_hectares, description_fr, description_en, map_order, status, created_at, updated_at, deleted_at, centroid_lat, centroid_lng, geojson, published_at",
+      "id, region_id, slug, name_fr, name_en, description_fr, description_en, area_hectares, centroid_lat, centroid_lng, color_hex, map_order, status, published_at, created_at, updated_at, deleted_at",
     )
     .in("id", subregionIds)
     .eq("region_id", region.id)
@@ -244,20 +136,15 @@ export async function getAopDetailByRegionAndSlug(regionSlug: string, aopSlug: s
     .limit(1);
 
   if (subregionsError) {
-    throw new Error(`Failed to fetch subregion for appellation: ${subregionsError.message}`);
+    throw new Error(
+      `Failed to fetch subregion for appellation: ${subregionsError.message}`,
+    );
   }
 
-  const subregion = ((subregions ?? [])[0] ?? null) as WineSubregion | null;
+  const subregion = ((subregions ?? [])[0] ?? null) as Subregion | null;
   if (!subregion) return null;
 
-  return {
-    appellation: {
-      ...(appellation as Omit<AopRecord, "subregion_id">),
-      subregion_id: subregion.id,
-    },
-    subregion,
-    region,
-  };
+  return { appellation, subregion, region };
 }
 
 export async function getAopBrowseItems(filters?: {
@@ -268,21 +155,21 @@ export async function getAopBrowseItems(filters?: {
   const includeDraft = process.env.NODE_ENV !== "production";
 
   let query = supabase
-    .from("appellation_subregion_links")
+    .from("aop_subregion_link")
     .select(
-      "appellation:appellation_id(id, slug, name_fr, name_en, area_hectares, status, published_at, deleted_at), subregion:subregion_id(id, slug, name_fr, name_en, region_id, status, deleted_at, region:wine_regions!wine_subregions_region_id_fkey(id, slug, name_fr, name_en, status, deleted_at))",
+      "aop:aop_id(id, slug, name, area_hectares, status, published_at, deleted_at), subregion:subregion_id(id, slug, name_fr, name_en, region_id, status, deleted_at, region:wine_regions!subregions_region_id_fkey(id, slug, name_fr, name_en, status, deleted_at))",
     );
 
   if (!includeDraft) {
     query = query
-      .eq("appellation.status", "published")
-      .not("appellation.published_at", "is", null)
+      .eq("aop.status", "published")
+      .not("aop.published_at", "is", null)
       .eq("subregion.status", "published")
       .eq("subregion.region.status", "published");
   }
 
   query = query
-    .is("appellation.deleted_at", null)
+    .is("aop.deleted_at", null)
     .is("subregion.deleted_at", null)
     .is("subregion.region.deleted_at", null);
 
@@ -290,7 +177,10 @@ export async function getAopBrowseItems(filters?: {
     query = query.eq("subregion.region_id", filters.regionId);
   }
   if (filters?.subregionId) {
-    query = query.eq("subregion.id", filters.subregionId);
+    const subId = Number(filters.subregionId);
+    if (Number.isFinite(subId)) {
+      query = query.eq("subregion.id", subId);
+    }
   }
 
   const { data, error } = await query;
@@ -299,7 +189,7 @@ export async function getAopBrowseItems(filters?: {
   }
 
   const rows = (data ?? []) as AopBrowseRow[];
-  const itemsMap = new Map<string, AopBrowseItem>();
+  const itemsMap = new Map<number, AopBrowseItem>();
   const regionsMap = new Map<
     string,
     {
@@ -307,48 +197,21 @@ export async function getAopBrowseItems(filters?: {
       slug: string;
       name_fr: string;
       name_en: string;
-      status: string;
-      published_at: string | null;
-      created_at: string;
-      updated_at: string;
-      deleted_at: string | null;
-      department_count: number | null;
-      area_hectares: number | null;
-      total_production_hl: number | null;
-      main_grapes_fr: string | null;
-      main_grapes_en: string | null;
-      geojson: unknown | null;
-      centroid_lat: number | null;
-      centroid_lng: number | null;
-      color_hex: string | null;
-      map_order: number | null;
     }
   >();
   const subregionsMap = new Map<
-    string,
+    number,
     {
       id: string;
       region_id: string;
       slug: string;
       name_fr: string;
       name_en: string;
-      area_hectares: number | null;
-      description_fr: string | null;
-      description_en: string | null;
-      geojson: unknown | null;
-      centroid_lat: number | null;
-      centroid_lng: number | null;
-      map_order: number | null;
-      status: string;
-      published_at: string | null;
-      created_at: string;
-      updated_at: string;
-      deleted_at: string | null;
     }
   >();
 
   for (const row of rows) {
-    const aRaw = row.appellation;
+    const aRaw = row.aop;
     const a = Array.isArray(aRaw) ? aRaw[0] ?? null : aRaw;
     const subRaw = row.subregion;
     const sub = Array.isArray(subRaw) ? subRaw[0] ?? null : subRaw;
@@ -360,8 +223,7 @@ export async function getAopBrowseItems(filters?: {
     itemsMap.set(a.id, {
       id: a.id,
       slug: a.slug,
-      name_fr: a.name_fr,
-      name_en: a.name_en,
+      name: a.name,
       area_hectares: a.area_hectares ?? null,
       subregion_slug: sub.slug,
       subregion_name_fr: sub.name_fr,
@@ -377,43 +239,16 @@ export async function getAopBrowseItems(filters?: {
         slug: region.slug,
         name_fr: region.name_fr,
         name_en: region.name_en,
-        status: region.status ?? "published",
-        published_at: null,
-        created_at: "",
-        updated_at: "",
-        deleted_at: null,
-        department_count: null,
-        area_hectares: null,
-        total_production_hl: null,
-        main_grapes_fr: null,
-        main_grapes_en: null,
-        geojson: null,
-        centroid_lat: null,
-        centroid_lng: null,
-        color_hex: null,
-        map_order: null,
       });
     }
 
     if (!subregionsMap.has(sub.id)) {
       subregionsMap.set(sub.id, {
-        id: sub.id,
+        id: String(sub.id),
         region_id: sub.region_id,
         slug: sub.slug,
         name_fr: sub.name_fr,
         name_en: sub.name_en,
-        area_hectares: null,
-        description_fr: null,
-        description_en: null,
-        geojson: null,
-        centroid_lat: null,
-        centroid_lng: null,
-        map_order: null,
-        status: sub.status ?? "published",
-        published_at: null,
-        created_at: "",
-        updated_at: "",
-        deleted_at: null,
       });
     }
   }
@@ -426,7 +261,7 @@ export async function getAopBrowseItems(filters?: {
       a.name_fr.localeCompare(b.name_fr),
     ),
     items: Array.from(itemsMap.values()).sort((a, b) =>
-      a.name_fr.localeCompare(b.name_fr),
+      a.name.localeCompare(b.name),
     ),
   };
 }

@@ -1,41 +1,35 @@
 import { createClient } from "@/lib/supabase/client";
-import type { WineSubregion } from "../types";
 
-export type VignobleMapSubregion = Pick<
-  WineSubregion,
-  | "id"
-  | "region_id"
-  | "slug"
-  | "name_fr"
-  | "name_en"
-  | "geojson"
-  | "centroid_lat"
-  | "centroid_lng"
-  | "area_hectares"
-  | "description_fr"
-  | "description_en"
->;
+/**
+ * Subregion shape used by the map layer — content fields plus live-unioned
+ * commune geometry from the `get_subregions_geojson_by_region` RPC. Keys
+ * mirror the RPC output, not the public.subregions table columns.
+ */
+export type VignobleMapSubregion = {
+  id: number;
+  region_id: string;
+  slug: string;
+  name_fr: string;
+  name_en: string;
+  description_fr: string | null;
+  description_en: string | null;
+  area_hectares: number | null;
+  centroid_lat: number | null;
+  centroid_lng: number | null;
+  color_hex: string | null;
+  map_order: number | null;
+  status: string | null;
+  published_at: string | null;
+  geometry: unknown | null;
+};
 
 export async function getSubregionsByRegionId(
   regionId: string,
 ): Promise<VignobleMapSubregion[]> {
   const supabase = createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
-  let query = supabase
-    .from("wine_subregions")
-    .select(
-      "id, region_id, slug, name_fr, name_en, geojson, centroid_lat, centroid_lng, area_hectares, description_fr, description_en",
-    )
-    .eq("region_id", regionId)
-    .is("deleted_at", null);
-
-  if (!includeDraft) {
-    query = query.or("status.eq.published,published_at.not.is.null");
-  }
-
-  const { data, error } = await query.order("map_order", {
-    ascending: true,
+  const { data, error } = await supabase.rpc("get_subregions_geojson_by_region", {
+    region_id_in: regionId,
   });
 
   if (error) {
@@ -44,5 +38,11 @@ export async function getSubregionsByRegionId(
     );
   }
 
-  return (data ?? []) as VignobleMapSubregion[];
+  const includeDraft = process.env.NODE_ENV !== "production";
+  const rows = (data ?? []) as VignobleMapSubregion[];
+  return includeDraft
+    ? rows
+    : rows.filter(
+        (r) => r.status === "published" || r.published_at != null,
+      );
 }

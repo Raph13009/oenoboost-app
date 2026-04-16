@@ -58,6 +58,9 @@ export type UseSubregionLayerResult = {
     opts?: { focusSubregionSlug?: string },
   ) => Promise<ShowResult>;
   hide: () => void;
+  /** Toggle the rendered visibility of the subregion fill + outline layers
+   *  without tearing down the underlying source. */
+  setVisibility: (visible: boolean) => void;
   /** Bounds of a specific subregion (e.g. for a "focus" camera move). */
   findBoundsForId: (subregionId: string) => Bounds | null;
 };
@@ -137,15 +140,16 @@ export function useSubregionLayer(
 
         const features = rows
           .map((sr, idx) => {
-            const normalized = normalizeToMultiPolygon(sr.geojson);
+            const normalized = normalizeToMultiPolygon(sr.geometry);
             if (!normalized) return null;
             const color_hex = getSubregionBaseColor(null, idx);
             const subregionName = locale === "en" ? sr.name_en : sr.name_fr;
+            const idStr = String(sr.id);
             return {
               type: "Feature" as const,
-              id: sr.id,
+              id: idStr,
               properties: {
-                subregion_id: sr.id,
+                subregion_id: idStr,
                 subregion_slug: sr.slug,
                 region_slug: regionSlug,
                 color_hex,
@@ -162,10 +166,10 @@ export function useSubregionLayer(
 
         const normalizedRows = rows
           .map((sr, idx) => {
-            const geo = normalizeToMultiPolygon(sr.geojson);
+            const geo = normalizeToMultiPolygon(sr.geometry);
             if (!geo) return null;
             return {
-              id: sr.id,
+              id: String(sr.id),
               slug: sr.slug,
               name: locale === "en" ? sr.name_en : sr.name_fr,
               colorHex: getSubregionBaseColor(null, idx),
@@ -179,9 +183,10 @@ export function useSubregionLayer(
           .filter((r): r is SubregionRow => Boolean(r));
         rowsRef.current = normalizedRows;
 
-        const focusedId = opts?.focusSubregionSlug
-          ? rows.find((r) => r.slug === opts.focusSubregionSlug)?.id ?? null
+        const focusMatch = opts?.focusSubregionSlug
+          ? rows.find((r) => r.slug === opts.focusSubregionSlug)
           : null;
+        const focusedId = focusMatch ? String(focusMatch.id) : null;
 
         map.addSource(subSourceId, {
           type: "geojson",
@@ -229,7 +234,7 @@ export function useSubregionLayer(
         // shares the region's name, treat the legend as empty (redundant).
         const items = rows
           .map((sr, idx) => ({
-            id: sr.id,
+            id: String(sr.id),
             slug: sr.slug,
             name: locale === "en" ? sr.name_en : sr.name_fr,
             colorHex: getSubregionBaseColor(null, idx),
@@ -333,6 +338,24 @@ export function useSubregionLayer(
     [map, locale, teardown],
   );
 
+  const setVisibility = useCallback(
+    (visible: boolean) => {
+      if (!map) return;
+      const value = visible ? "visible" : "none";
+      try {
+        if (map.getLayer(subFillLayerId)) {
+          map.setLayoutProperty(subFillLayerId, "visibility", value);
+        }
+        if (map.getLayer(subOutlineLayerId)) {
+          map.setLayoutProperty(subOutlineLayerId, "visibility", value);
+        }
+      } catch {
+        /* ignore */
+      }
+    },
+    [map],
+  );
+
   const findBoundsForId = useCallback(
     (subregionId: string): Bounds | null => {
       const row = rowsRef.current.find((r) => r.id === subregionId);
@@ -391,6 +414,7 @@ export function useSubregionLayer(
     select,
     show,
     hide,
+    setVisibility,
     findBoundsForId,
   };
 }

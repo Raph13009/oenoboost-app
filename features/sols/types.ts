@@ -1,10 +1,9 @@
 export type { SoilType } from "@/types/database";
 
 export type RelatedAop = {
-  id: string;
+  id: number;
   slug: string;
-  name_fr: string;
-  name_en: string;
+  name: string;
   region_slug: string;
   subregion_slug: string;
 };

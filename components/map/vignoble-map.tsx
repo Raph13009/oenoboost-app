@@ -33,6 +33,12 @@ const MAPBOX_INIT = {
   zoom: 4.6,
 };
 
+const REGIONS_WITHOUT_SUBREGIONS = new Set(["corse", "provence", "jura"]);
+
+function isAopOnlyRegion(region: VignobleMapRegion | null): boolean {
+  return region != null && REGIONS_WITHOUT_SUBREGIONS.has(region.region_slug);
+}
+
 function getRegionBounds(region: VignobleMapRegion): Bounds | null {
   const normalized = normalizeToMultiPolygon(region.geojson);
   if (!normalized) return null;
@@ -125,6 +131,9 @@ export function VignobleMap({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [subregionsMode, setSubregionsMode] = useState(false);
+  const [layerMode, setLayerMode] = useState<"subregions" | "aop">(
+    "subregions",
+  );
   const selectedRegion = selectedRegionId
     ? regionById.get(selectedRegionId) ?? null
     : null;
@@ -169,10 +178,6 @@ export function VignobleMap({
       subregions.select(id);
       const b = subregions.findBoundsForId(id);
       if (b) camera.fitToBounds(b, { padding: 26, maxZoom: 9.2 });
-      if (!aop.visible && selectedRegion) {
-        const regionBbox = getRegionBounds(selectedRegion);
-        if (regionBbox) void aop.show(regionBbox);
-      }
     };
   });
 
@@ -184,6 +189,23 @@ export function VignobleMap({
     async (region: VignobleMapRegion, focusSubregionSlug?: string) => {
       setSelectedRegionId(region.region_id);
       setSheetOpen(false);
+
+      if (isAopOnlyRegion(region)) {
+        const regionBbox = getRegionBounds(region);
+        setSubregionsMode(true);
+        setLayerMode("aop");
+        subregionsBoundsRef.current = regionBbox;
+        if (regionBbox) {
+          camera.fitToBounds(regionBbox, {
+            padding: 22,
+            maxZoom: 8,
+            duration: 250,
+          });
+          void aop.show(regionBbox, region.region_id);
+        }
+        return;
+      }
+
       const result = await subregions.show(
         region.region_id,
         region.region_slug,
@@ -191,6 +213,7 @@ export function VignobleMap({
         { focusSubregionSlug },
       );
       setSubregionsMode(true);
+      setLayerMode("subregions");
       subregionsBoundsRef.current = result.bounds;
       if (result.bounds) {
         camera.fitToBounds(result.bounds, {
@@ -199,8 +222,6 @@ export function VignobleMap({
           duration: 250,
         });
       }
-      const regionBbox = getRegionBounds(region);
-      if (regionBbox) void aop.show(regionBbox);
       if (result.focusedId) {
         const focusBounds = subregions.findBoundsForId(result.focusedId);
         if (focusBounds) {
@@ -215,8 +236,30 @@ export function VignobleMap({
     subregions.hide();
     aop.hide();
     setSubregionsMode(false);
+    setLayerMode("subregions");
     subregionsBoundsRef.current = null;
   }, [subregions, aop]);
+
+  const handleLayerModeChange = useCallback(
+    (next: "subregions" | "aop") => {
+      if (next === layerMode) return;
+      if (isAopOnlyRegion(selectedRegion)) return;
+      setLayerMode(next);
+      if (next === "aop") {
+        subregions.setVisibility(false);
+        if (selectedRegion) {
+          const regionBbox = getRegionBounds(selectedRegion);
+          if (regionBbox) {
+            void aop.show(regionBbox, selectedRegion.region_id);
+          }
+        }
+      } else {
+        aop.hide();
+        subregions.setVisibility(true);
+      }
+    },
+    [layerMode, subregions, aop, selectedRegion],
+  );
 
   // Fit camera to a selected region once its sheet has rendered (so we know
   // how much of the map is visually hidden by the bottom card).
@@ -266,10 +309,13 @@ export function VignobleMap({
     enterSubregions,
   ]);
 
+  const aopOnly = isAopOnlyRegion(selectedRegion);
+  const showBottomPanel = subregionsMode && !aopOnly;
+
   return (
     <div className="flex h-full flex-col gap-1 md:gap-2 overflow-hidden">
       <div
-        className={`relative ${subregionsMode ? "h-[78%] md:h-[62%]" : "h-full"}`}
+        className={`relative ${showBottomPanel ? "h-[78%] md:h-[62%]" : "h-full"}`}
       >
         <div
           ref={containerRef}
@@ -311,27 +357,25 @@ export function VignobleMap({
         {subregionsMode && (
           <MapActionBar
             backLabel={strings.backToRegions}
-            aopVisible={aop.visible}
+            subregionsLabel={strings.subregionsLayer}
+            aopLabel={strings.aopLayer}
+            layerMode={layerMode}
             aopLoading={aop.loading}
+            toggleDisabled={aopOnly}
             onBack={() => {
               exitSubregions();
               camera.fitToFrance();
               setSheetOpen(false);
               setSelectedRegionId(null);
             }}
-            onToggleAop={() => {
-              const regionBbox = selectedRegion
-                ? getRegionBounds(selectedRegion)
-                : null;
-              void aop.toggle(regionBbox);
-            }}
+            onLayerModeChange={handleLayerModeChange}
           />
         )}
 
         {!ready && <MapLoadingOverlay />}
       </div>
 
-      {subregionsMode && (
+      {showBottomPanel && (
         <div className="flex-1 overflow-hidden">
           {selectedSubregion ? (
             <SubregionDetailPanel
@@ -353,10 +397,6 @@ export function VignobleMap({
                 subregions.select(id);
                 const b = subregions.findBoundsForId(id);
                 if (b) camera.fitToBounds(b, { padding: 26, maxZoom: 9.2 });
-                if (!aop.visible && selectedRegion) {
-                  const regionBbox = getRegionBounds(selectedRegion);
-                  if (regionBbox) void aop.show(regionBbox);
-                }
               }}
             />
           )}

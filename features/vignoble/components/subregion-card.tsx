@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import type { WineSubregion } from "../types";
+import type { Subregion } from "../types";
 import type { Locale } from "@/lib/i18n/config";
 import { getContent } from "@/lib/i18n/get-content";
 
 type SubregionCardProps = {
-  subregion: WineSubregion;
+  subregion: Subregion;
   regionSlug: string;
   locale: Locale;
   hectaresLabel: string;

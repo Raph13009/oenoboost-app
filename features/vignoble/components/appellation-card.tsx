@@ -4,7 +4,6 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { Appellation } from "../types";
 import type { Locale } from "@/lib/i18n/config";
-import { getContent } from "@/lib/i18n/get-content";
 import type { AppellationFavoriteLabels } from "./appellation-favorite-button";
 import { AppellationFavoriteButton } from "./appellation-favorite-button";
 
@@ -27,7 +26,7 @@ export function AppellationCard({
   isLoggedIn,
   favoriteLabels,
 }: AppellationCardProps) {
-  const name = getContent(appellation, "name", locale);
+  const name = appellation.name;
   const href = `/vignoble/${regionSlug}/${appellation.slug}?subregion=${encodeURIComponent(subregionSlug)}`;
 
   return (
@@ -48,7 +47,7 @@ export function AppellationCard({
       </Link>
       <div className="flex shrink-0 items-center border-l border-border/50 px-2">
         <AppellationFavoriteButton
-          appellationId={appellation.id}
+          appellationId={String(appellation.id)}
           regionSlug={regionSlug}
           aopSlug={appellation.slug}
           subregionSlug={subregionSlug}

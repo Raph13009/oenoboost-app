@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { getContent } from "@/lib/i18n/get-content";
 import type { Locale } from "@/lib/i18n/config";
 import type { RelatedAop, SoilType } from "../types";
 import type { SoilFavoriteLabels } from "./soil-favorite-button";
@@ -124,11 +123,7 @@ export function SoilDetail({
           ) : (
             <ul className="flex flex-col gap-3">
               {relatedAops.map((aop) => {
-                const name = getContent(
-                  { name_fr: aop.name_fr, name_en: aop.name_en },
-                  "name",
-                  locale,
-                );
+                const name = aop.name;
                 const qp = new URLSearchParams();
                 qp.set("subregion", aop.subregion_slug);
                 qp.set("from", "soil");

@@ -10,6 +10,7 @@ export type AopMapItem = {
 
 export async function getAopCommunesInBbox(
   bbox: [number, number, number, number],
+  regionId?: string,
 ): Promise<AopMapItem[]> {
   const supabase = createClient();
 
@@ -18,6 +19,7 @@ export async function getAopCommunesInBbox(
     min_lat: bbox[1],
     max_lng: bbox[2],
     max_lat: bbox[3],
+    region_id_in: regionId ?? null,
   });
 
   if (error) throw new Error(`Failed to fetch AOP communes: ${error.message}`);

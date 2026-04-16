@@ -13,7 +13,8 @@ export async function getTotalFavoritesCount(userId: string): Promise<number> {
 
 export type FavoritedIds = {
   grapeIds: Set<string>;
-  appellationIds: Set<string>;
+  /** AOP ids stored as strings (favorites.content_id is text). */
+  aopIds: Set<string>;
 };
 
 export async function getFavoritedContentIds(
@@ -26,19 +27,19 @@ export async function getFavoritedContentIds(
     .eq("user_id", userId);
 
   const grapeIds = new Set<string>();
-  const appellationIds = new Set<string>();
+  const aopIds = new Set<string>();
 
   if (error || !data) {
-    return { grapeIds, appellationIds };
+    return { grapeIds, aopIds };
   }
 
   for (const row of data) {
     if (row.content_type === "grape") {
       grapeIds.add(row.content_id as string);
-    } else if (row.content_type === "appellation") {
-      appellationIds.add(row.content_id as string);
+    } else if (row.content_type === "aop") {
+      aopIds.add(row.content_id as string);
     }
   }
 
-  return { grapeIds, appellationIds };
+  return { grapeIds, aopIds };
 }

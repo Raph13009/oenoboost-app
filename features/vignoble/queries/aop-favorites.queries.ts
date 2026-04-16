@@ -10,7 +10,7 @@ export async function isAppellationFavorited(
     .from("favorites")
     .select("id")
     .eq("user_id", userId)
-    .eq("content_type", "appellation")
+    .eq("content_type", "aop")
     .eq("content_id", appellationId)
     .eq("module", "vignoble")
     .maybeSingle();
@@ -21,7 +21,7 @@ export async function isAppellationFavorited(
 
 export type FavoriteAppellationRow = {
   favoriteId: string;
-  appellation: Pick<Appellation, "id" | "slug" | "name_fr" | "name_en">;
+  appellation: Pick<Appellation, "id" | "slug" | "name">;
   regionSlug: string;
   subregionSlug: string;
 };
@@ -38,42 +38,41 @@ export async function getFavoriteAppellationsForUser(
     .from("favorites")
     .select("id, content_id, created_at")
     .eq("user_id", userId)
-    .eq("content_type", "appellation")
+    .eq("content_type", "aop")
     .eq("module", "vignoble")
     .order("created_at", { ascending: false });
 
   if (favError || !favs?.length) return [];
 
-  const ids = favs.map((f) => f.content_id);
+  // favorites.content_id is now text (holds integer aop ids as strings)
+  const ids = favs
+    .map((f) => Number(f.content_id))
+    .filter((n) => Number.isFinite(n));
+  if (ids.length === 0) return [];
 
   const { data: links, error: linkError } = await supabase
-    .from("appellation_subregion_links")
-    .select("appellation_id, subregion_id")
-    .in("appellation_id", ids)
+    .from("aop_subregion_link")
+    .select("aop_id, subregion_id")
+    .in("aop_id", ids)
     .not("subregion_id", "is", null);
 
   if (linkError || !links?.length) return [];
 
-  const firstPathByAppellation = new Map<
-    string,
-    { subregionId: string }
-  >();
+  const firstPathByAop = new Map<number, { subregionId: number }>();
 
   for (const row of links) {
-    const aid = row.appellation_id as string;
-    const sid = row.subregion_id as string | null;
-    if (!sid || firstPathByAppellation.has(aid)) continue;
-    firstPathByAppellation.set(aid, { subregionId: sid });
+    const aid = row.aop_id as number;
+    const sid = row.subregion_id as number | null;
+    if (sid == null || firstPathByAop.has(aid)) continue;
+    firstPathByAop.set(aid, { subregionId: sid });
   }
 
   const subIds = [
-    ...new Set(
-      [...firstPathByAppellation.values()].map((p) => p.subregionId),
-    ),
+    ...new Set([...firstPathByAop.values()].map((p) => p.subregionId)),
   ];
 
   const { data: subregions, error: subErr } = await supabase
-    .from("wine_subregions")
+    .from("subregions")
     .select("id, slug, region_id")
     .in("id", subIds)
     .is("deleted_at", null);
@@ -101,20 +100,22 @@ export async function getFavoriteAppellationsForUser(
     ]),
   );
 
-  const { data: appellations, error: aError } = await supabase
-    .from("appellations")
-    .select("id, slug, name_fr, name_en")
+  const { data: aops, error: aError } = await supabase
+    .from("aop")
+    .select("id, slug, name")
     .in("id", ids)
     .is("deleted_at", null);
 
-  if (aError || !appellations) return [];
+  if (aError || !aops) return [];
 
-  const byId = new Map(appellations.map((a) => [a.id, a]));
+  const byId = new Map(aops.map((a) => [a.id, a]));
   const out: FavoriteAppellationRow[] = [];
 
   for (const f of favs) {
-    const a = byId.get(f.content_id);
-    const path = firstPathByAppellation.get(f.content_id);
+    const aopId = Number(f.content_id);
+    if (!Number.isFinite(aopId)) continue;
+    const a = byId.get(aopId);
+    const path = firstPathByAop.get(aopId);
     if (!a || !path) continue;
     const sub = subById.get(path.subregionId);
     if (!sub?.regionSlug) continue;

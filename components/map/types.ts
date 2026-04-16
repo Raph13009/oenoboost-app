@@ -24,6 +24,8 @@ export type VignobleMapStrings = {
   discover: string;
   backToRegions: string;
   backToRegion: string;
+  subregionsLayer: string;
+  aopLayer: string;
   closeLabel: string;
   departmentsLabel: string;
   hectaresLabel: string;

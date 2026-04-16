@@ -48,7 +48,7 @@ export default async function RegionSubregionOrAopPage({
     const user = await getCurrentUser();
     const favIds = user
       ? await getFavoritedContentIds(user.id)
-      : { grapeIds: new Set<string>(), appellationIds: new Set<string>() };
+      : { grapeIds: new Set<string>(), aopIds: new Set<string>() };
 
     const aopFavoriteLabels = {
       favoriteAria: dict.vignoble.favoriteAddAria,
@@ -100,7 +100,7 @@ export default async function RegionSubregionOrAopPage({
                 regionSlug={regionSlug}
                 subregionSlug={subregion.slug}
                 locale={locale}
-                initialFavorited={favIds.appellationIds.has(aop.id)}
+                initialFavorited={favIds.aopIds.has(String(aop.id))}
                 isLoggedIn={!!user}
                 favoriteLabels={aopFavoriteLabels}
               />
@@ -116,7 +116,7 @@ export default async function RegionSubregionOrAopPage({
 
   const user = await getCurrentUser();
   const initialAopFavorited = user
-    ? await isAppellationFavorited(user.id, aop.appellation.id)
+    ? await isAppellationFavorited(user.id, String(aop.appellation.id))
     : false;
   const relatedSoils = await getRelatedSoilsForAppellation(aop.appellation.id);
 
@@ -184,7 +184,7 @@ export default async function RegionSubregionOrAopPage({
         locale={locale}
         userPlan={user?.plan === "premium" ? "premium" : "free"}
         favorite={{
-          appellationId: aop.appellation.id,
+          appellationId: String(aop.appellation.id),
           regionSlug: aop.region.slug,
           subregionSlug: aop.subregion.slug,
           aopSlug: aop.appellation.slug,

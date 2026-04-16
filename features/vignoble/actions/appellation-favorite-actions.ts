@@ -39,7 +39,7 @@ export async function toggleAppellationFavoriteAction(
     .from("favorites")
     .select("id")
     .eq("user_id", user.id)
-    .eq("content_type", "appellation")
+    .eq("content_type", "aop")
     .eq("content_id", appellationId)
     .eq("module", "vignoble")
     .maybeSingle();
@@ -81,7 +81,7 @@ export async function toggleAppellationFavoriteAction(
 
   const { error: insError } = await supabase.from("favorites").insert({
     user_id: user.id,
-    content_type: "appellation",
+    content_type: "aop",
     content_id: appellationId,
     module: "vignoble",
   });

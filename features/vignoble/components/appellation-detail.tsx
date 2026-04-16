@@ -37,7 +37,7 @@ export function AppellationDetail({
   relatedSoils = [],
   soilLabels,
 }: AppellationDetailProps) {
-  const name = getContent(appellation, "name", locale);
+  const name = appellation.name;
   const history = getContent(appellation, "history", locale);
   const colorsGrapes = getContent(appellation, "colors_grapes", locale);
   const soils = getContent(appellation, "soils_description", locale);

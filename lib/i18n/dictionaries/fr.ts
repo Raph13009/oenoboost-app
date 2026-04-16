@@ -357,6 +357,8 @@ const fr = {
     discover: "Découvrir",
     backToRegions: "Retour aux régions",
     backToRegion: "Retour à la région",
+    subregionsLayer: "Sous-régions",
+    aopLayer: "AOP",
     backToMap: "Retour à la carte",
     backToSoilNamed: "Retour vers le sol « {name} »",
     viewAllAops: "Voir toutes les AOP",

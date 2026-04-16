@@ -17,11 +17,12 @@ import {
 type UseAopLayerResult = {
   visible: boolean;
   loading: boolean;
-  /** Fetch AOPs for the given bbox and render them. Re-entrant: replaces any existing layer. */
-  show: (bbox: Bounds) => Promise<void>;
+  /** Fetch AOPs for the given bbox (optionally scoped to a region) and render them.
+   *  Re-entrant: replaces any existing layer. */
+  show: (bbox: Bounds, regionId?: string) => Promise<void>;
   hide: () => void;
   /** Toggle. When visible, hides. When hidden, shows for the given bbox (no-op if null). */
-  toggle: (bbox: Bounds | null) => Promise<void>;
+  toggle: (bbox: Bounds | null, regionId?: string) => Promise<void>;
 };
 
 /**
@@ -47,18 +48,16 @@ export function useAopLayer(map: any | null): UseAopLayerResult {
   }, [runCleanup]);
 
   const show = useCallback(
-    async (bbox: Bounds) => {
+    async (bbox: Bounds, regionId?: string) => {
       if (!map) return;
       setLoading(true);
       try {
         runCleanup();
 
-        const aops = await getAopCommunesInBbox([
-          bbox[0][0],
-          bbox[0][1],
-          bbox[1][0],
-          bbox[1][1],
-        ]);
+        const aops = await getAopCommunesInBbox(
+          [bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1]],
+          regionId,
+        );
 
         // Sorted descending by area: smaller AOPs paint on top of larger ones
         // so they remain visible (and clickable) where they overlap.
@@ -231,12 +230,12 @@ export function useAopLayer(map: any | null): UseAopLayerResult {
   );
 
   const toggle = useCallback(
-    async (bbox: Bounds | null) => {
+    async (bbox: Bounds | null, regionId?: string) => {
       if (visible) {
         hide();
         return;
       }
-      if (bbox) await show(bbox);
+      if (bbox) await show(bbox, regionId);
     },
     [visible, hide, show],
   );

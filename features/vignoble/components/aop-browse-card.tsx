@@ -24,7 +24,7 @@ export function AopBrowseCard({
   isLoggedIn,
   favoriteLabels,
 }: Props) {
-  const name = locale === "fr" ? item.name_fr : item.name_en;
+  const name = item.name;
   const regionName = locale === "fr" ? item.region_name_fr : item.region_name_en;
   const subName =
     locale === "fr" ? item.subregion_name_fr : item.subregion_name_en;
@@ -44,7 +44,7 @@ export function AopBrowseCard({
       </Link>
       <div className="flex shrink-0 items-center border-l border-border/50 px-2">
         <AppellationFavoriteButton
-          appellationId={item.id}
+          appellationId={String(item.id)}
           regionSlug={item.region_slug}
           aopSlug={item.slug}
           subregionSlug={item.subregion_slug}

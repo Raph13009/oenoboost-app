@@ -25,7 +25,7 @@ export default async function AopListPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   const favIds = user
     ? await getFavoritedContentIds(user.id)
-    : { grapeIds: new Set<string>(), appellationIds: new Set<string>() };
+    : { grapeIds: new Set<string>(), aopIds: new Set<string>() };
 
   const aopFavoriteLabels = {
     favoriteAria: dict.vignoble.favoriteAddAria,
@@ -96,7 +96,7 @@ export default async function AopListPage({ searchParams }: Props) {
                 item={item}
                 locale={locale}
                 href={href}
-                initialFavorited={favIds.appellationIds.has(item.id)}
+                initialFavorited={favIds.aopIds.has(String(item.id))}
                 isLoggedIn={!!user}
                 favoriteLabels={aopFavoriteLabels}
               />

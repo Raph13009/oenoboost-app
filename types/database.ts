@@ -20,18 +20,26 @@ export type WineRegion = {
   deleted_at: string | null;
 };
 
-export type WineSubregion = {
-  id: string;
+/**
+ * Subregion shape as exposed to the app. Backed by `public.subregions`
+ * (integer id, N:N commune links via `communes_full_subregion_link`).
+ *
+ * No `geojson` column — the map derives polygons live by unioning the linked
+ * communes via the `get_subregions_geojson_by_region` RPC, same pattern used
+ * for AOPs.
+ */
+export type Subregion = {
+  id: number;
   region_id: string;
   slug: string;
   name_fr: string;
   name_en: string;
-  area_hectares: number | null;
   description_fr: string | null;
   description_en: string | null;
-  geojson: unknown | null;
+  area_hectares: number | null;
   centroid_lat: number | null;
   centroid_lng: number | null;
+  color_hex: string | null;
   map_order: number | null;
   status: string;
   published_at: string | null;
@@ -40,12 +48,19 @@ export type WineSubregion = {
   deleted_at: string | null;
 };
 
+/**
+ * AOP shape as exposed to the app. Backed by the `aop` table (integer id).
+ *
+ * `name` is a single column — AOP names are identical in fr/en so there's no
+ * i18n split. No `subregion_id` column: the AOP↔subregion relation lives in
+ * `aop_subregion_link` (a given AOP can span several subregions). No
+ * `geojson`/`centroid_lat`/`centroid_lng`: the map renders AOP polygons from
+ * the union of linked communes in `communes_full_aop_link`.
+ */
 export type Appellation = {
-  id: string;
-  subregion_id: string;
+  id: number;
   slug: string;
-  name_fr: string;
-  name_en: string;
+  name: string;
   area_hectares: number | null;
   producer_count: number | null;
   production_volume_hl: number | null;
@@ -57,9 +72,6 @@ export type Appellation = {
   colors_grapes_en: string | null;
   soils_description_fr: string | null;
   soils_description_en: string | null;
-  geojson: unknown | null;
-  centroid_lat: number | null;
-  centroid_lng: number | null;
   is_premium: boolean;
   status: string;
   published_at: string | null;

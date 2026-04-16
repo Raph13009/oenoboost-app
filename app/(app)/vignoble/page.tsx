@@ -49,6 +49,8 @@ export default async function VignoblePage({
             discover: dict.vignoble.discover,
             backToRegions: dict.vignoble.backToRegions,
             backToRegion: dict.vignoble.backToRegion,
+            subregionsLayer: dict.vignoble.subregionsLayer,
+            aopLayer: dict.vignoble.aopLayer,
             departmentsLabel: dict.vignoble.departmentCount,
             hectaresLabel: dict.vignoble.hectares,
             totalProductionLabel: dict.vignoble.totalProduction,

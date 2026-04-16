@@ -369,7 +369,7 @@ export default async function HomePage() {
                 const href = `/vignoble/${item.row.regionSlug}/${item.row.appellation.slug}?subregion=${encodeURIComponent(
                   item.row.subregionSlug,
                 )}&from=favorites`;
-                const name = getContent(item.row.appellation, "name", locale);
+                const name = item.row.appellation.name;
 
                 return (
                   <div
@@ -394,7 +394,7 @@ export default async function HomePage() {
                       </div>
                       <div className="shrink-0">
                         <AppellationFavoriteButton
-                          appellationId={item.row.appellation.id}
+                          appellationId={String(item.row.appellation.id)}
                           regionSlug={item.row.regionSlug}
                           aopSlug={item.row.appellation.slug}
                           subregionSlug={item.row.subregionSlug}

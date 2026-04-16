@@ -358,6 +358,8 @@ const en: Dictionary = {
     discover: "Discover",
     backToRegions: "Back to regions",
     backToRegion: "Back to region",
+    subregionsLayer: "Subregions",
+    aopLayer: "AOP",
     backToMap: "Back to map",
     backToSoilNamed: "Back to soil “{name}”",
     viewAllAops: "View all AOPs",

@@ -58,7 +58,7 @@ export default async function CepagesPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   const favIds = user
     ? await getFavoritedContentIds(user.id)
-    : { grapeIds: new Set<string>(), appellationIds: new Set<string>() };
+    : { grapeIds: new Set<string>(), aopIds: new Set<string>() };
 
   return (
     <div className="flex flex-col gap-6">

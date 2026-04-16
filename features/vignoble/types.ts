@@ -1,1 +1,1 @@
-export type { WineRegion, WineSubregion, Appellation } from "@/types/database";
+export type { WineRegion, Subregion, Appellation } from "@/types/database";

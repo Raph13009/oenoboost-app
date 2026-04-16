@@ -1,23 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Appellation } from "../types";
 
+const AOP_COLUMNS =
+  "id, slug, name, area_hectares, producer_count, production_volume_hl, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, is_premium, status, created_at, updated_at, deleted_at, published_at";
+
 export async function getAppellations(
-  subregionId: string,
+  subregionId: number,
 ): Promise<Appellation[]> {
   const supabase = await createClient();
   const includeDraft = process.env.NODE_ENV !== "production";
 
   let query = supabase
-    .from("appellation_subregion_links")
-    .select(
-      "subregion_id, appellation:appellation_id(id, slug, name_fr, name_en, area_hectares, producer_count, production_volume_hl, is_premium, status, created_at, updated_at, deleted_at, published_at, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, centroid_lat, centroid_lng, geojson)",
-    )
+    .from("aop_subregion_link")
+    .select(`aop:aop_id(${AOP_COLUMNS})`)
     .eq("subregion_id", subregionId);
 
   if (!includeDraft) {
     query = query.or(
       "status.eq.published,published_at.not.is.null",
-      { referencedTable: "appellation" },
+      { referencedTable: "aop" },
     );
   }
 
@@ -27,27 +28,18 @@ export async function getAppellations(
   }
 
   const rows = (data ?? []) as Array<{
-    subregion_id: string | null;
-    appellation:
-      | (Omit<Appellation, "subregion_id"> & { deleted_at: string | null })
-      | (Omit<Appellation, "subregion_id"> & { deleted_at: string | null })[]
-      | null;
+    aop: Appellation | Appellation[] | null;
   }>;
 
-  const mapped = rows
+  return rows
     .map((row) => {
-      const raw = row.appellation;
+      const raw = row.aop;
       const a = Array.isArray(raw) ? raw[0] ?? null : raw;
       if (!a || a.deleted_at) return null;
-      return {
-        ...a,
-        subregion_id: row.subregion_id ?? "",
-      } as Appellation;
+      return a;
     })
     .filter((r): r is Appellation => Boolean(r))
-    .sort((a, b) => a.name_fr.localeCompare(b.name_fr));
-
-  return mapped;
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getAppellationBySlug(
@@ -57,10 +49,8 @@ export async function getAppellationBySlug(
   const includeDraft = process.env.NODE_ENV !== "production";
 
   let query = supabase
-    .from("appellations")
-    .select(
-      "id, slug, name_fr, name_en, area_hectares, producer_count, production_volume_hl, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, is_premium, status, created_at, updated_at, deleted_at, published_at, centroid_lat, centroid_lng, geojson",
-    )
+    .from("aop")
+    .select(AOP_COLUMNS)
     .eq("slug", slug)
     .is("deleted_at", null);
 
@@ -75,10 +65,5 @@ export async function getAppellationBySlug(
     throw new Error(`Failed to fetch appellation: ${error.message}`);
   }
 
-  const a = data as Omit<Appellation, "subregion_id">;
-  return {
-    ...a,
-    // canonical relation is in appellation_subregion_links
-    subregion_id: "",
-  } as Appellation;
+  return data as Appellation;
 }

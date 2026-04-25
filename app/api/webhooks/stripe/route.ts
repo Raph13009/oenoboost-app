@@ -90,14 +90,30 @@ async function persistSubscriptionState(
   const nextPlan = isPremiumStatus(payload.status) ? "premium" : "free";
   const nowIso = payload.updated_at;
 
+  console.info("[billing][webhook] persisting subscription state", {
+    stripeSubscriptionId: payload.stripe_subscription_id,
+    userId: payload.user_id,
+    status: payload.status,
+    nextPlan,
+  });
+
   const upsertSub = await supabase.from("subscriptions").upsert(payload, {
     onConflict: "stripe_subscription_id",
   });
   if (upsertSub.error) {
+    console.error("[billing][webhook] subscriptions upsert error", {
+      stripeSubscriptionId: payload.stripe_subscription_id,
+      userId: payload.user_id,
+      error: upsertSub.error,
+    });
     throw new Error(
       `[stripe webhook] subscriptions upsert failed (${payload.stripe_subscription_id}): ${upsertSub.error.message}`,
     );
   }
+  console.info("[billing][webhook] subscriptions upsert success", {
+    stripeSubscriptionId: payload.stripe_subscription_id,
+    userId: payload.user_id,
+  });
 
   const updateUser = await supabase
     .from("users")
@@ -105,10 +121,19 @@ async function persistSubscriptionState(
     .eq("id", payload.user_id)
     .is("deleted_at", null);
   if (updateUser.error) {
+    console.error("[billing][webhook] users plan update error", {
+      userId: payload.user_id,
+      nextPlan,
+      error: updateUser.error,
+    });
     throw new Error(
       `[stripe webhook] users plan update failed (${payload.user_id}): ${updateUser.error.message}`,
     );
   }
+  console.info("[billing][webhook] users plan update success", {
+    userId: payload.user_id,
+    nextPlan,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -138,6 +163,11 @@ export async function POST(request: NextRequest) {
   const stripe = getStripe();
 
   try {
+    console.info("[billing][webhook] received event", {
+      eventType: event.type,
+      eventId: event.id,
+      eventObject: event.data.object,
+    });
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -157,6 +187,12 @@ export async function POST(request: NextRequest) {
           subscription,
           typeof fallbackUserId === "string" ? fallbackUserId : null,
         );
+        console.info("[billing][webhook] extracted user_id", {
+          eventType: event.type,
+          eventId: event.id,
+          userId,
+          fallbackUserId,
+        });
         if (!userId) break;
         const period = periodFieldsFromSubscription(subscription);
 
@@ -180,6 +216,11 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
         const userId = await resolveUserIdForSubscription(supabase, subscription);
+        console.info("[billing][webhook] extracted user_id", {
+          eventType: event.type,
+          eventId: event.id,
+          userId,
+        });
         if (!userId) break;
         const period = periodFieldsFromSubscription(subscription);
 
@@ -202,7 +243,7 @@ export async function POST(request: NextRequest) {
         break;
     }
   } catch (error) {
-    console.error("[stripe webhook] handler error", {
+    console.error("[billing][webhook] handler error", {
       eventType: event.type,
       eventId: event.id,
       error,

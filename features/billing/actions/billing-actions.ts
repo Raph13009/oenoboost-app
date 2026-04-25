@@ -107,11 +107,15 @@ export async function createPremiumCheckoutSession(
     const stripe = getStripe();
     const origin = getAppOrigin();
     const safeReturnPath = normalizeReturnPath(returnPath);
+    const checkoutMetadata = { user_id: user.id };
+    const subscriptionMetadata = { user_id: user.id };
     console.info("[billing][checkout] creating checkout session", {
       userId: user.id,
       origin,
       safeReturnPath,
       hasCustomerReuse: Boolean(latestSub?.stripe_customer_id),
+      checkoutMetadata,
+      subscriptionMetadata,
     });
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -121,9 +125,9 @@ export async function createPremiumCheckoutSession(
       client_reference_id: user.id,
       customer: latestSub?.stripe_customer_id || undefined,
       customer_email: user.email || undefined,
-      metadata: { user_id: user.id },
+      metadata: checkoutMetadata,
       subscription_data: {
-        metadata: { user_id: user.id },
+        metadata: subscriptionMetadata,
       },
       allow_promotion_codes: true,
     });

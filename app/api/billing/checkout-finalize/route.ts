@@ -20,9 +20,13 @@ function toIsoOrNull(unixSeconds: number | null | undefined): string | null {
 export async function GET(request: NextRequest) {
   const sessionId = request.nextUrl.searchParams.get("session_id");
   const returnTo = normalizeReturnPath(request.nextUrl.searchParams.get("return_to"));
+  console.info("[billing][finalize] request received", {
+    sessionId,
+    returnTo,
+  });
 
   if (!sessionId) {
-    console.error("[billing][checkout-finalize] missing session_id");
+    console.error("[billing][finalize] missing session_id");
     const url = new URL("/profil/checkout-success", request.url);
     url.searchParams.set("return_to", returnTo);
     url.searchParams.set("sync_error", "MISSING_SESSION_ID");
@@ -34,9 +38,13 @@ export async function GET(request: NextRequest) {
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ["subscription"],
     });
+    console.info("[billing][finalize] stripe session retrieved", {
+      sessionId,
+      sessionObject: session,
+    });
 
     if (session.mode !== "subscription") {
-      console.error("[billing][checkout-finalize] session is not subscription", {
+      console.error("[billing][finalize] session is not subscription", {
         sessionId,
         mode: session.mode,
       });
@@ -47,8 +55,14 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.client_reference_id ?? session.metadata?.user_id ?? null;
+    console.info("[billing][finalize] extracted user_id", {
+      sessionId,
+      userId,
+      clientReferenceId: session.client_reference_id ?? null,
+      metadataUserId: session.metadata?.user_id ?? null,
+    });
     if (!userId || typeof userId !== "string") {
-      console.error("[billing][checkout-finalize] missing user_id in session", {
+      console.error("[billing][finalize] missing user_id in session", {
         sessionId,
       });
       const url = new URL("/profil/checkout-success", request.url);
@@ -88,7 +102,7 @@ export async function GET(request: NextRequest) {
       { onConflict: "id" },
     );
     if (upsertUser.error) {
-      console.error("[billing][checkout-finalize] users upsert failed", {
+      console.error("[billing][finalize] users upsert failed", {
         sessionId,
         userId,
         error: upsertUser.error,
@@ -98,6 +112,11 @@ export async function GET(request: NextRequest) {
       url.searchParams.set("sync_error", "DB_USERS");
       return NextResponse.redirect(url);
     }
+    console.info("[billing][finalize] users upsert success", {
+      sessionId,
+      userId,
+      plan: "premium",
+    });
 
     if (sub) {
       const stripeCustomerId =
@@ -120,20 +139,27 @@ export async function GET(request: NextRequest) {
         { onConflict: "stripe_subscription_id" },
       );
       if (upsertSub.error) {
-        console.error("[billing][checkout-finalize] subscriptions upsert failed", {
+        console.error("[billing][finalize] subscriptions upsert failed", {
           sessionId,
           userId,
           error: upsertSub.error,
         });
+      } else {
+        console.info("[billing][finalize] subscriptions upsert success", {
+          sessionId,
+          userId,
+          stripeSubscriptionId: sub.id,
+          status: sub.status,
+        });
       }
     } else {
-      console.warn("[billing][checkout-finalize] no subscription object found", {
+      console.warn("[billing][finalize] no subscription object found", {
         sessionId,
         userId,
       });
     }
 
-    console.info("[billing][checkout-finalize] premium sync success", {
+    console.info("[billing][finalize] premium sync success", {
       sessionId,
       userId,
       status: sub?.status ?? null,
@@ -144,7 +170,7 @@ export async function GET(request: NextRequest) {
     url.searchParams.set("synced", "1");
     return NextResponse.redirect(url);
   } catch (error) {
-    console.error("[billing][checkout-finalize] fatal error", {
+    console.error("[billing][finalize] fatal error", {
       sessionId,
       error,
     });

@@ -45,8 +45,15 @@ export function PaywallModal({ open, onOpenChange }: PaywallModalProps) {
 
   const handleUpgrade = useCallback(() => {
     startTransition(async () => {
+      console.info("[paywall] upgrade click", {
+        pathname: pathname || "/",
+      });
       const result = await createPremiumCheckoutSession(pathname || "/");
+      console.info("[paywall] checkout session result", result);
       if (result.ok) {
+        console.info("[paywall] redirecting to stripe checkout", {
+          url: result.url,
+        });
         window.location.assign(result.url);
         return;
       }

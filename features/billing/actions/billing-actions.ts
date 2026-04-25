@@ -53,26 +53,46 @@ export async function createPremiumCheckoutSession(
 ): Promise<CreatePremiumCheckoutResult> {
   const user = await getCurrentUser();
   if (!user) {
+    console.warn("[billing][checkout] auth required");
     return { ok: false, code: "AUTH_REQUIRED" };
   }
   if (user.plan === "premium") {
+    console.info("[billing][checkout] already premium", { userId: user.id });
     return { ok: false, code: "ALREADY_PREMIUM" };
   }
 
   const priceId = process.env.STRIPE_PRICE_ID_PREMIUM?.trim();
   if (!priceId) {
+    console.error("[billing][checkout] missing STRIPE_PRICE_ID_PREMIUM");
     return { ok: false, code: "CONFIG" };
   }
 
   try {
     const latestSub = await getLatestSubscriptionForUser(user.id);
+    console.info("[billing][checkout] latest subscription lookup", {
+      userId: user.id,
+      hasLatestSubscription: Boolean(latestSub),
+      latestStatus: latestSub?.status ?? null,
+      hasStripeCustomerId: Boolean(latestSub?.stripe_customer_id),
+    });
+
     if (latestSub?.status && isPremiumStatus(latestSub.status)) {
+      console.info("[billing][checkout] active subscription already exists", {
+        userId: user.id,
+        status: latestSub.status,
+      });
       return { ok: false, code: "ALREADY_SUBSCRIBED" };
     }
 
     const stripe = getStripe();
     const origin = getAppOrigin();
     const safeReturnPath = normalizeReturnPath(returnPath);
+    console.info("[billing][checkout] creating checkout session", {
+      userId: user.id,
+      origin,
+      safeReturnPath,
+      hasCustomerReuse: Boolean(latestSub?.stripe_customer_id),
+    });
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
@@ -89,10 +109,22 @@ export async function createPremiumCheckoutSession(
     });
 
     if (!session.url) {
+      console.error("[billing][checkout] stripe session missing url", {
+        userId: user.id,
+        sessionId: session.id,
+      });
       return { ok: false, code: "STRIPE_ERROR" };
     }
+    console.info("[billing][checkout] checkout session created", {
+      userId: user.id,
+      sessionId: session.id,
+    });
     return { ok: true, url: session.url };
-  } catch {
+  } catch (error) {
+    console.error("[billing][checkout] failed to create session", {
+      userId: user.id,
+      error,
+    });
     return { ok: false, code: "STRIPE_ERROR" };
   }
 }

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { syncCheckoutSuccessAction } from "@/features/billing/actions/billing-actions";
+
 function normalizeReturnPath(value: string | null): string {
   if (!value) return "/";
   if (!value.startsWith("/")) return "/";
@@ -19,6 +21,21 @@ export default function CheckoutSuccessPage() {
     () => normalizeReturnPath(searchParams.get("return_to")),
     [searchParams],
   );
+  const sessionId = searchParams.get("session_id");
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      const result = await syncCheckoutSuccessAction(sessionId);
+      if (!mounted) return;
+      if (!result.ok) {
+        console.warn("[checkout-success] sync failed", result);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

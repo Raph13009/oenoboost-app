@@ -27,6 +27,19 @@ type CreateBillingPortalResult =
       code: "AUTH_REQUIRED" | "NOT_PREMIUM" | "NO_CUSTOMER" | "STRIPE_ERROR";
     };
 
+type CheckoutSyncResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code:
+        | "AUTH_REQUIRED"
+        | "INVALID_SESSION"
+        | "NOT_SUBSCRIPTION"
+        | "USER_MISMATCH"
+        | "STRIPE_ERROR"
+        | "DB_ERROR";
+    };
+
 async function getLatestSubscriptionForUser(userId: string) {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
@@ -46,6 +59,11 @@ function normalizeReturnPath(value: string | null | undefined): string {
   // Prevent protocol-relative or malformed values.
   if (value.startsWith("//")) return "/";
   return value;
+}
+
+function toIsoOrNull(unixSeconds: number | null | undefined): string | null {
+  if (!unixSeconds || !Number.isFinite(unixSeconds)) return null;
+  return new Date(unixSeconds * 1000).toISOString();
 }
 
 export async function createPremiumCheckoutSession(
@@ -96,7 +114,7 @@ export async function createPremiumCheckoutSession(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/profil/checkout-success?return_to=${encodeURIComponent(safeReturnPath)}`,
+      success_url: `${origin}/profil/checkout-success?return_to=${encodeURIComponent(safeReturnPath)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/profil?checkout=cancel&return_to=${encodeURIComponent(safeReturnPath)}`,
       client_reference_id: user.id,
       customer: latestSub?.stripe_customer_id || undefined,
@@ -123,6 +141,113 @@ export async function createPremiumCheckoutSession(
   } catch (error) {
     console.error("[billing][checkout] failed to create session", {
       userId: user.id,
+      error,
+    });
+    return { ok: false, code: "STRIPE_ERROR" };
+  }
+}
+
+export async function syncCheckoutSuccessAction(
+  sessionId: string | null | undefined,
+): Promise<CheckoutSyncResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, code: "AUTH_REQUIRED" };
+  if (!sessionId) return { ok: false, code: "INVALID_SESSION" };
+
+  try {
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["subscription"],
+    });
+    if (session.mode !== "subscription") {
+      return { ok: false, code: "NOT_SUBSCRIPTION" };
+    }
+
+    const sessionUserId =
+      session.client_reference_id ?? session.metadata?.user_id ?? null;
+    if (!sessionUserId || sessionUserId !== user.id) {
+      return { ok: false, code: "USER_MISMATCH" };
+    }
+
+    const rawSubscription = session.subscription;
+    const subscription =
+      typeof rawSubscription === "string"
+        ? await stripe.subscriptions.retrieve(rawSubscription)
+        : rawSubscription;
+    if (!subscription) {
+      return { ok: false, code: "STRIPE_ERROR" };
+    }
+
+    const sub = subscription as unknown as {
+      id: string;
+      status: string;
+      customer: string | { id: string } | null;
+      canceled_at?: number | null;
+      current_period_start?: number;
+      current_period_end?: number;
+      items: { data?: Array<{ price?: { id?: string } }> };
+    };
+
+    const nowIso = new Date().toISOString();
+    const stripeCustomerId =
+      typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null;
+    const stripePriceId = sub.items.data?.[0]?.price?.id ?? null;
+    const nextPlan = isPremiumStatus(sub.status) ? "premium" : "free";
+
+    const supabase = createServiceRoleClient();
+    const upsertSub = await supabase.from("subscriptions").upsert(
+      {
+        user_id: user.id,
+        stripe_customer_id: stripeCustomerId,
+        stripe_subscription_id: sub.id,
+        stripe_price_id: stripePriceId,
+        plan: "premium",
+        status: sub.status,
+        current_period_start: toIsoOrNull(sub.current_period_start),
+        current_period_end: toIsoOrNull(sub.current_period_end),
+        canceled_at: toIsoOrNull(sub.canceled_at ?? null),
+        updated_at: nowIso,
+      },
+      { onConflict: "stripe_subscription_id" },
+    );
+    if (upsertSub.error) {
+      console.error("[billing][checkout-success] subscriptions upsert failed", {
+        userId: user.id,
+        sessionId,
+        error: upsertSub.error,
+      });
+      return { ok: false, code: "DB_ERROR" };
+    }
+
+    const updateUser = await supabase
+      .from("users")
+      .update({
+        plan: nextPlan,
+        updated_at: nowIso,
+      })
+      .eq("id", user.id)
+      .is("deleted_at", null);
+    if (updateUser.error) {
+      console.error("[billing][checkout-success] users plan update failed", {
+        userId: user.id,
+        sessionId,
+        error: updateUser.error,
+      });
+      return { ok: false, code: "DB_ERROR" };
+    }
+
+    console.info("[billing][checkout-success] synced from checkout session", {
+      userId: user.id,
+      sessionId,
+      subscriptionId: sub.id,
+      status: sub.status,
+      nextPlan,
+    });
+    return { ok: true };
+  } catch (error) {
+    console.error("[billing][checkout-success] sync failed", {
+      userId: user.id,
+      sessionId,
       error,
     });
     return { ok: false, code: "STRIPE_ERROR" };

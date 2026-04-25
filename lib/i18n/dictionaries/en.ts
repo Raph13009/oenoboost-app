@@ -439,8 +439,18 @@ const en: Dictionary = {
     logout: "Log out",
     settings: "Settings",
     subscription: "Subscription",
+    manageSubscription: "Manage subscription",
+    cancelSubscription: "Cancel subscription",
+    cancelSubscriptionConfirm: "Cancel your subscription?",
+    cancelSubscriptionWarning:
+      "Your Premium subscription will be canceled immediately and your plan will switch back to free.",
+    cancelSubscriptionKeep: "Keep subscription",
     checkoutSuccessBanner:
       "Welcome to Premium. If your plan still shows as free, refresh in a few seconds.",
+    subscriptionCanceledBanner:
+      "Your subscription has been canceled. Your plan is now free.",
+    subscriptionCancelErrorBanner:
+      "We could not cancel your subscription right now. Please try again in a few moments.",
     deleteAccount: "Delete my account",
     deleteAccountTitle: "Account deletion",
     deleteAccountBody:

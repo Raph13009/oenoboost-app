@@ -440,8 +440,18 @@ const fr = {
     logout: "Se déconnecter",
     settings: "Réglages",
     subscription: "Abonnement",
+    manageSubscription: "Gérer mon abonnement",
+    cancelSubscription: "Résilier l'abonnement",
+    cancelSubscriptionConfirm: "Résilier votre abonnement ?",
+    cancelSubscriptionWarning:
+      "Votre abonnement Premium sera résilié immédiatement et votre offre repassera en free.",
+    cancelSubscriptionKeep: "Conserver l'abonnement",
     checkoutSuccessBanner:
       "Bienvenue en Premium. Si votre offre est encore « free », actualisez la page dans quelques secondes.",
+    subscriptionCanceledBanner:
+      "Votre abonnement a bien été résilié. Votre offre est maintenant free.",
+    subscriptionCancelErrorBanner:
+      "Impossible de résilier l'abonnement pour le moment. Réessayez dans quelques instants.",
     deleteAccount: "Supprimer mon compte",
     deleteAccountTitle: "Suppression de compte",
     deleteAccountBody:

@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { History, Star } from "lucide-react";
 
 import { ProfileSettingsPanel } from "@/components/shared/profile-settings-panel";
+import { openBillingPortalAction } from "@/features/billing/actions/billing-actions";
 import { getLevelProgress } from "@/features/gamification/levels";
 import { requireUser } from "@/lib/auth/session";
 import { getServerLocale } from "@/lib/i18n/server";
@@ -14,8 +16,19 @@ function getInitials(firstName: string | null, lastName: string | null) {
 }
 
 type Props = {
-  searchParams?: Promise<{ checkout?: string }>;
+  searchParams?: Promise<{
+    checkout?: string;
+    return_to?: string;
+    subscription?: string;
+  }>;
 };
+
+function normalizeReturnPath(value: string | undefined): string | null {
+  if (!value) return null;
+  if (!value.startsWith("/")) return null;
+  if (value.startsWith("//")) return null;
+  return value;
+}
 
 export default async function ProfilePage({ searchParams }: Props) {
   const user = await requireUser();
@@ -23,6 +36,14 @@ export default async function ProfilePage({ searchParams }: Props) {
   const dict = await getDictionary(locale);
   const qp = (await searchParams) ?? {};
   const checkoutSuccess = qp.checkout === "success";
+  const checkoutCancel = qp.checkout === "cancel";
+  const subscriptionCanceled = qp.subscription === "canceled";
+  const subscriptionCancelError = qp.subscription === "cancel_error";
+  const returnTo = normalizeReturnPath(qp.return_to);
+
+  if (checkoutCancel && returnTo) {
+    redirect(returnTo);
+  }
 
   const initials = getInitials(user.first_name, user.last_name);
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
@@ -39,6 +60,22 @@ export default async function ProfilePage({ searchParams }: Props) {
           role="status"
         >
           {dict.profile.checkoutSuccessBanner}
+        </div>
+      ) : null}
+      {subscriptionCanceled ? (
+        <div
+          className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground"
+          role="status"
+        >
+          {dict.profile.subscriptionCanceledBanner}
+        </div>
+      ) : null}
+      {subscriptionCancelError ? (
+        <div
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          role="alert"
+        >
+          {dict.profile.subscriptionCancelErrorBanner}
         </div>
       ) : null}
       <div>
@@ -152,19 +189,35 @@ export default async function ProfilePage({ searchParams }: Props) {
             {dict.tastingHistory.title}
           </Link>
 
-          <button
-            type="button"
-            disabled
-            className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-lg border border-border/50 bg-muted/30 px-2.5 text-sm font-medium text-muted-foreground opacity-70"
-          >
-            {dict.profile.subscription}
-          </button>
+          {user.plan === "premium" ? (
+            <form action={openBillingPortalAction}>
+              <button
+                type="submit"
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border bg-background px-2.5 text-sm font-medium transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-muted hover:text-foreground"
+              >
+                {dict.profile.manageSubscription}
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-lg border border-border/50 bg-muted/30 px-2.5 text-sm font-medium text-muted-foreground opacity-70"
+            >
+              {dict.profile.subscription}
+            </button>
+          )}
 
           <ProfileSettingsPanel
             deleteContactEmail={deleteContactEmail}
+            isPremium={user.plan === "premium"}
             copy={{
               settings: dict.profile.settings,
               logout: dict.profile.logout,
+              cancelSubscription: dict.profile.cancelSubscription,
+              cancelSubscriptionConfirm: dict.profile.cancelSubscriptionConfirm,
+              cancelSubscriptionWarning: dict.profile.cancelSubscriptionWarning,
+              cancelSubscriptionKeep: dict.profile.cancelSubscriptionKeep,
               deleteAccount: dict.profile.deleteAccount,
               deleteDialogTitle: dict.profile.deleteAccountTitle,
               deleteDialogBody: dict.profile.deleteAccountBody,

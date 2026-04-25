@@ -45,7 +45,7 @@ export function PaywallModal({ open, onOpenChange }: PaywallModalProps) {
 
   const handleUpgrade = useCallback(() => {
     startTransition(async () => {
-      const result = await createPremiumCheckoutSession();
+      const result = await createPremiumCheckoutSession(pathname || "/");
       if (result.ok) {
         window.location.assign(result.url);
         return;
@@ -58,6 +58,7 @@ export function PaywallModal({ open, onOpenChange }: PaywallModalProps) {
           break;
         }
         case "ALREADY_PREMIUM":
+        case "ALREADY_SUBSCRIBED":
           setToast(copy.checkoutAlreadyPremium);
           onOpenChange(false);
           break;

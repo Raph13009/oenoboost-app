@@ -37,6 +37,7 @@ type CheckoutSyncResult =
         | "INVALID_SESSION"
         | "NOT_SUBSCRIPTION"
         | "USER_MISMATCH"
+        | "SUBSCRIPTION_NOT_FOUND"
         | "STRIPE_ERROR"
         | "DB_ERROR";
     };
@@ -159,16 +160,30 @@ export async function syncCheckoutSuccessAction(
     let subscription: Stripe.Subscription | null = null;
 
     if (sessionId) {
+      console.info("[billing][checkout-success] sync via session id", {
+        userId: user.id,
+        sessionId,
+      });
       const session = await stripe.checkout.sessions.retrieve(sessionId, {
         expand: ["subscription"],
       });
       if (session.mode !== "subscription") {
+        console.warn("[billing][checkout-success] session is not subscription mode", {
+          userId: user.id,
+          sessionId,
+          mode: session.mode,
+        });
         return { ok: false, code: "NOT_SUBSCRIPTION" };
       }
 
       const sessionUserId =
         session.client_reference_id ?? session.metadata?.user_id ?? null;
       if (!sessionUserId || sessionUserId !== user.id) {
+        console.warn("[billing][checkout-success] user mismatch for checkout session", {
+          userId: user.id,
+          sessionId,
+          sessionUserId,
+        });
         return { ok: false, code: "USER_MISMATCH" };
       }
 
@@ -178,15 +193,41 @@ export async function syncCheckoutSuccessAction(
           ? await stripe.subscriptions.retrieve(rawSubscription)
           : rawSubscription;
     } else {
-      // Fallback for old checkout success URLs that don't include session_id.
-      const found = await stripe.subscriptions.search({
-        query: `metadata['user_id']:'${user.id}'`,
-        limit: 1,
+      console.info("[billing][checkout-success] no session id, trying fallback lookup", {
+        userId: user.id,
+        email: user.email,
       });
-      subscription = found.data[0] ?? null;
+      // Fallback for old checkout success URLs that don't include session_id.
+      // Prefer customer by email and list subscriptions, avoid relying on search availability.
+      const customers = await stripe.customers.list({
+        email: user.email || undefined,
+        limit: 5,
+      });
+      for (const customer of customers.data) {
+        const list = await stripe.subscriptions.list({
+          customer: customer.id,
+          status: "all",
+          limit: 10,
+        });
+        const exact = list.data.find((s) => s.metadata?.user_id === user.id);
+        if (exact) {
+          subscription = exact;
+          break;
+        }
+        if (!subscription && list.data.length > 0) {
+          // Last resort: keep most recent from matched customer email.
+          subscription = list.data[0];
+        }
+      }
     }
 
-    if (!subscription) return { ok: false, code: "INVALID_SESSION" };
+    if (!subscription) {
+      console.error("[billing][checkout-success] subscription not found after lookup", {
+        userId: user.id,
+        sessionId: sessionId ?? null,
+      });
+      return { ok: false, code: "SUBSCRIPTION_NOT_FOUND" };
+    }
 
     const sub = subscription as unknown as {
       id: string;

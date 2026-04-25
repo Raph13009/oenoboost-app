@@ -26,23 +26,41 @@ export default function CheckoutSuccessPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      console.info("[checkout-success] start sync", {
+      console.info("[checkout-success] start premium activation", {
         sessionId: sessionId ?? null,
         returnTo,
       });
-      // Retry a few times in case webhook/Stripe propagation is still in flight.
+      // Hard requirement: when success page is shown, force users.plan='premium'.
       for (let attempt = 1; attempt <= 4; attempt += 1) {
-        const response = await fetch("/api/billing/checkout-sync", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ sessionId }),
-        });
-        const result = await response.json();
+        const response = await fetch("/api/billing/force-premium", { method: "POST" });
+        const result = await response.json().catch(() => ({}));
         if (cancelled) return;
-        console.info("[checkout-success] sync attempt result", { attempt, result });
+        console.info("[checkout-success] force-premium attempt result", {
+          attempt,
+          httpStatus: response.status,
+          result,
+        });
         if (response.ok && result.ok) {
           setSyncState("ok");
           setSyncCode(null);
+          // Keep subscriptions table best-effort sync in background for consistency.
+          void fetch("/api/billing/checkout-sync", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ sessionId }),
+          })
+            .then(async (res) => {
+              const payload = await res.json().catch(() => ({}));
+              console.info("[checkout-success] checkout-sync background result", {
+                httpStatus: res.status,
+                payload,
+              });
+            })
+            .catch((error) => {
+              console.warn("[checkout-success] checkout-sync background failed", {
+                error,
+              });
+            });
           return;
         }
         setSyncCode(result.code ?? `HTTP_${response.status}`);
@@ -84,10 +102,10 @@ export default function CheckoutSuccessPage() {
         ) : null}
         {syncState === "error" ? (
           <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-left text-sm text-red-800">
-            <p>La synchronisation premium a echoue.</p>
+            <p>L'activation Premium a echoue.</p>
             <p className="mt-1 text-xs opacity-80">
-              Code: {syncCode ?? "unknown"} | Ouvre les logs Vercel
-              &nbsp;`[billing][checkout-success]`.
+              Code: {syncCode ?? "unknown"} | Ouvre les logs Vercel:
+              &nbsp;`[billing][force-premium]`.
             </p>
           </div>
         ) : null}

@@ -19,7 +19,9 @@ function toIsoOrNull(unixSeconds: number | null | undefined): string | null {
 
 export async function GET(request: NextRequest) {
   const sessionId = request.nextUrl.searchParams.get("session_id");
+  const session_id = sessionId;
   const returnTo = normalizeReturnPath(request.nextUrl.searchParams.get("return_to"));
+  console.log("[billing][checkout-finalize] called", session_id);
   console.info("[billing][finalize] request received", {
     sessionId,
     returnTo,

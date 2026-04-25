@@ -120,7 +120,7 @@ export async function createPremiumCheckoutSession(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/api/billing/checkout-finalize?session_id={CHECKOUT_SESSION_ID}&return_to=${encodeURIComponent("/profil")}`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/billing/checkout-finalize?session_id={CHECKOUT_SESSION_ID}&return_to=/profil`,
       cancel_url: `${origin}/profil?checkout=cancel&return_to=${encodeURIComponent(safeReturnPath)}`,
       client_reference_id: user.id,
       customer: latestSub?.stripe_customer_id || undefined,

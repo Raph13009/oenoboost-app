@@ -102,7 +102,7 @@ export default function CheckoutSuccessPage() {
         ) : null}
         {syncState === "error" ? (
           <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-left text-sm text-red-800">
-            <p>L'activation Premium a echoue.</p>
+            <p>L&apos;activation Premium a echoue.</p>
             <p className="mt-1 text-xs opacity-80">
               Code: {syncCode ?? "unknown"} | Ouvre les logs Vercel:
               &nbsp;`[billing][force-premium]`.

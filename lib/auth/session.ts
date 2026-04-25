@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 import type { Locale } from "@/lib/i18n/config";
 
@@ -17,23 +17,6 @@ export type CurrentUser = {
   locale: Locale;
 };
 
-function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const schema = process.env.SUPABASE_SCHEMA || "public";
-
-  if (!url || !key) {
-    throw new Error(
-      "Missing Supabase server env vars (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).",
-    );
-  }
-
-  return createSupabaseClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    db: { schema },
-  });
-}
-
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const supabase = await createClient();
   const {
@@ -43,7 +26,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   if (authError || !authUser) return null;
 
-  const admin = createAdminClient();
+  const admin = createServiceRoleClient();
   const { data, error } = await admin
     .from("users")
     .select(

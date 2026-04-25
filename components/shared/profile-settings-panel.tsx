@@ -10,10 +10,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { signOutAction } from "@/features/auth/actions";
+import { cancelCurrentSubscriptionAction } from "@/features/billing/actions/billing-actions";
 
 export type ProfileSettingsCopy = {
   settings: string;
   logout: string;
+  cancelSubscription: string;
+  cancelSubscriptionConfirm: string;
+  cancelSubscriptionWarning: string;
+  cancelSubscriptionKeep: string;
   deleteAccount: string;
   deleteDialogTitle: string;
   deleteDialogBody: string;
@@ -23,11 +28,13 @@ export type ProfileSettingsCopy = {
 type Props = {
   copy: ProfileSettingsCopy;
   deleteContactEmail: string;
+  isPremium: boolean;
 };
 
-export function ProfileSettingsPanel({ copy, deleteContactEmail }: Props) {
+export function ProfileSettingsPanel({ copy, deleteContactEmail, isPremium }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const bodyWithEmail = copy.deleteDialogBody.replace(
     "{{email}}",
@@ -63,6 +70,19 @@ export function ProfileSettingsPanel({ copy, deleteContactEmail }: Props) {
               variant="ghost"
               className="h-auto w-full justify-start px-2 py-2 text-sm font-normal text-muted-foreground hover:text-foreground"
               onClick={() => {
+                if (!isPremium) return;
+                setSettingsOpen(false);
+                setCancelOpen(true);
+              }}
+              disabled={!isPremium}
+            >
+              {copy.cancelSubscription}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-auto w-full justify-start px-2 py-2 text-sm font-normal text-muted-foreground hover:text-foreground"
+              onClick={() => {
                 setSettingsOpen(false);
                 setDeleteOpen(true);
               }}
@@ -86,6 +106,25 @@ export function ProfileSettingsPanel({ copy, deleteContactEmail }: Props) {
           >
             {copy.deleteDialogAck}
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle>{copy.cancelSubscriptionConfirm}</DialogTitle>
+          <DialogDescription className="text-foreground/90">
+            {copy.cancelSubscriptionWarning}
+          </DialogDescription>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button type="button" variant="outline" onClick={() => setCancelOpen(false)}>
+              {copy.cancelSubscriptionKeep}
+            </Button>
+            <form action={cancelCurrentSubscriptionAction}>
+              <Button type="submit" className="w-full">
+                {copy.cancelSubscription}
+              </Button>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
     </>

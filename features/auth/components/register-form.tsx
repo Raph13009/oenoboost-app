@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,18 +10,18 @@ import { useLocale } from "@/lib/i18n/locale-context";
 import frDict from "@/lib/i18n/dictionaries/fr";
 import enDict from "@/lib/i18n/dictionaries/en";
 import { signUpAction } from "@/features/auth/actions";
-import { getSafeRedirectPath } from "@/lib/auth/safe-redirect-path";
 
-export function RegisterForm() {
+type RegisterFormProps = {
+  /** Resolved on the server from `?next=` (avoids client `useSearchParams` + Suspense flash). */
+  afterAuthPath?: string | null;
+};
+
+export function RegisterForm({ afterAuthPath: afterAuthPathProp }: RegisterFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { locale } = useLocale();
   const dict = locale === "en" ? enDict : frDict;
 
-  const afterAuthPath = useMemo(
-    () => getSafeRedirectPath(searchParams.get("next")),
-    [searchParams],
-  );
+  const afterAuthPath = afterAuthPathProp ?? null;
   const loginHref = useMemo(() => {
     if (!afterAuthPath) return "/login";
     return `/login?next=${encodeURIComponent(afterAuthPath)}`;
@@ -76,7 +76,13 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-4"
+      data-1p-ignore
+      data-lpignore="true"
+      data-bwignore
+    >
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="firstName">{dict.auth.firstName}</Label>

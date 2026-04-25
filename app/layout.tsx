@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Tenor_Sans } from "next/font/google";
 import { Header } from "@/components/shared/header";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
@@ -77,10 +77,6 @@ export const metadata: Metadata = {
     ],
   },
   manifest: "/favicon/site.webmanifest",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#7C2736" },
-    { media: "(prefers-color-scheme: dark)", color: "#5e1d29" },
-  ],
   appleWebApp: {
     capable: true,
     title: SITE_NAME,
@@ -110,6 +106,13 @@ export const metadata: Metadata = {
     "msapplication-TileColor": "#7C2736",
     "msapplication-TileImage": "/favicon/apple-touch-icon.png",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#7C2736" },
+    { media: "(prefers-color-scheme: dark)", color: "#5e1d29" },
+  ],
 };
 
 export default async function RootLayout({

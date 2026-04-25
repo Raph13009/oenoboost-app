@@ -402,6 +402,11 @@ const fr = {
     gateTitle: "Contenu Premium",
     gateBody: "Débloquez l'accès complet pour explorer ce contenu.",
     gateCta: "Passer à Premium",
+    checkoutLoginRequired: "Connectez-vous pour vous abonner.",
+    checkoutAlreadyPremium: "Vous êtes déjà Premium.",
+    checkoutConfig:
+      "Paiement non configuré. Ajoutez les clés Stripe à l'environnement serveur.",
+    checkoutError: "Impossible de démarrer le paiement. Réessayez plus tard.",
   },
   blog: {
     title: "Blog",
@@ -435,6 +440,8 @@ const fr = {
     logout: "Se déconnecter",
     settings: "Réglages",
     subscription: "Abonnement",
+    checkoutSuccessBanner:
+      "Bienvenue en Premium. Si votre offre est encore « free », actualisez la page dans quelques secondes.",
     deleteAccount: "Supprimer mon compte",
     deleteAccountTitle: "Suppression de compte",
     deleteAccountBody:

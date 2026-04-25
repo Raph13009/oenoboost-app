@@ -403,6 +403,11 @@ const en: Dictionary = {
     gateTitle: "Premium content",
     gateBody: "Unlock full access to explore this content.",
     gateCta: "Go Premium",
+    checkoutLoginRequired: "Please sign in to subscribe.",
+    checkoutAlreadyPremium: "You already have Premium.",
+    checkoutConfig:
+      "Payments are not configured. Add Stripe keys to the server environment.",
+    checkoutError: "Could not start checkout. Try again later.",
   },
   blog: {
     title: "Blog",
@@ -434,6 +439,8 @@ const en: Dictionary = {
     logout: "Log out",
     settings: "Settings",
     subscription: "Subscription",
+    checkoutSuccessBanner:
+      "Welcome to Premium. If your plan still shows as free, refresh in a few seconds.",
     deleteAccount: "Delete my account",
     deleteAccountTitle: "Account deletion",
     deleteAccountBody:

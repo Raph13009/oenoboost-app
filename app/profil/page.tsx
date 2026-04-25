@@ -13,10 +13,16 @@ function getInitials(firstName: string | null, lastName: string | null) {
   return (first + last).toUpperCase() || "U";
 }
 
-export default async function ProfilePage() {
+type Props = {
+  searchParams?: Promise<{ checkout?: string }>;
+};
+
+export default async function ProfilePage({ searchParams }: Props) {
   const user = await requireUser();
   const locale = await getServerLocale();
   const dict = await getDictionary(locale);
+  const qp = (await searchParams) ?? {};
+  const checkoutSuccess = qp.checkout === "success";
 
   const initials = getInitials(user.first_name, user.last_name);
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
@@ -27,6 +33,14 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {checkoutSuccess ? (
+        <div
+          className="rounded-xl border border-wine/30 bg-wine/5 px-4 py-3 text-sm text-foreground"
+          role="status"
+        >
+          {dict.profile.checkoutSuccessBanner}
+        </div>
+      ) : null}
       <div>
         <h1 className="font-heading text-3xl font-semibold md:text-4xl">
           {dict.nav.profil}

@@ -205,6 +205,24 @@ export async function syncCheckoutSuccessAction(
     const nextPlan = isPremiumStatus(sub.status) ? "premium" : "free";
 
     const supabase = createServiceRoleClient();
+    const upsertUser = await supabase.from("users").upsert(
+      {
+        id: user.id,
+        email: user.email,
+        plan: nextPlan,
+        updated_at: nowIso,
+      },
+      { onConflict: "id" },
+    );
+    if (upsertUser.error) {
+      console.error("[billing][checkout-success] users upsert failed", {
+        userId: user.id,
+        sessionId,
+        error: upsertUser.error,
+      });
+      return { ok: false, code: "DB_ERROR" };
+    }
+
     const upsertSub = await supabase.from("subscriptions").upsert(
       {
         user_id: user.id,
@@ -225,23 +243,6 @@ export async function syncCheckoutSuccessAction(
         userId: user.id,
         sessionId,
         error: upsertSub.error,
-      });
-      return { ok: false, code: "DB_ERROR" };
-    }
-
-    const updateUser = await supabase
-      .from("users")
-      .update({
-        plan: nextPlan,
-        updated_at: nowIso,
-      })
-      .eq("id", user.id)
-      .is("deleted_at", null);
-    if (updateUser.error) {
-      console.error("[billing][checkout-success] users plan update failed", {
-        userId: user.id,
-        sessionId,
-        error: updateUser.error,
       });
       return { ok: false, code: "DB_ERROR" };
     }

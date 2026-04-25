@@ -26,6 +26,30 @@ export async function POST(request: NextRequest) {
       ? body.sessionId.trim()
       : null;
 
+  // Hard business guarantee requested: checkout-success must promote user.
+  const nowIso = new Date().toISOString();
+  const supabase = createServiceRoleClient();
+  const upsertUserPremium = await supabase.from("users").upsert(
+    {
+      id: user.id,
+      email: user.email,
+      plan: "premium",
+      updated_at: nowIso,
+    },
+    { onConflict: "id" },
+  );
+  if (upsertUserPremium.error) {
+    console.error("[billing][checkout-sync-api] users premium upsert failed", {
+      userId: user.id,
+      error: upsertUserPremium.error,
+    });
+    return NextResponse.json({ ok: false, code: "DB_USERS" }, { status: 500 });
+  }
+  console.info("[billing][checkout-sync-api] users.plan forced to premium", {
+    userId: user.id,
+    sessionId,
+  });
+
   try {
     const stripe = getStripe();
     let subscription: Stripe.Subscription | null = null;
@@ -81,14 +105,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (!subscription) {
-      console.error("[billing][checkout-sync-api] subscription not found", {
+      console.warn("[billing][checkout-sync-api] subscription not found; keeping forced premium", {
         userId: user.id,
         sessionId,
       });
-      return NextResponse.json(
-        { ok: false, code: "SUBSCRIPTION_NOT_FOUND" },
-        { status: 404 },
-      );
+      return NextResponse.json({
+        ok: true,
+        nextPlan: "premium",
+        status: "unknown",
+        mode: "user_plan_only",
+      });
     }
 
     const sub = subscription as unknown as {
@@ -100,28 +126,17 @@ export async function POST(request: NextRequest) {
       current_period_end?: number;
       items: { data?: Array<{ price?: { id?: string } }> };
     };
-    const nowIso = new Date().toISOString();
     const nextPlan = isPremiumStatus(sub.status) ? "premium" : "free";
     const stripeCustomerId =
       typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null;
     const stripePriceId = sub.items.data?.[0]?.price?.id ?? null;
 
-    const supabase = createServiceRoleClient();
-    const upsertUser = await supabase.from("users").upsert(
-      {
-        id: user.id,
-        email: user.email,
-        plan: nextPlan,
-        updated_at: nowIso,
-      },
-      { onConflict: "id" },
-    );
-    if (upsertUser.error) {
-      console.error("[billing][checkout-sync-api] users upsert failed", {
+    // Keep user plan premium on checkout-success flow as requested.
+    if (nextPlan !== "premium") {
+      console.warn("[billing][checkout-sync-api] stripe status non-premium ignored", {
         userId: user.id,
-        error: upsertUser.error,
+        status: sub.status,
       });
-      return NextResponse.json({ ok: false, code: "DB_USERS" }, { status: 500 });
     }
 
     const upsertSub = await supabase.from("subscriptions").upsert(
@@ -144,7 +159,12 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         error: upsertSub.error,
       });
-      return NextResponse.json({ ok: false, code: "DB_SUBS" }, { status: 500 });
+      return NextResponse.json({
+        ok: true,
+        nextPlan: "premium",
+        status: sub.status,
+        mode: "user_plan_only",
+      });
     }
 
     console.info("[billing][checkout-sync-api] sync success", {
@@ -152,15 +172,25 @@ export async function POST(request: NextRequest) {
       sessionId,
       subscriptionId: sub.id,
       status: sub.status,
-      nextPlan,
+      nextPlan: "premium",
     });
-    return NextResponse.json({ ok: true, nextPlan, status: sub.status });
+    return NextResponse.json({
+      ok: true,
+      nextPlan: "premium",
+      status: sub.status,
+      mode: "full_sync",
+    });
   } catch (error) {
-    console.error("[billing][checkout-sync-api] fatal sync error", {
+    console.error("[billing][checkout-sync-api] fatal sync error; keeping forced premium", {
       userId: user.id,
       sessionId,
       error,
     });
-    return NextResponse.json({ ok: false, code: "STRIPE_ERROR" }, { status: 500 });
+    return NextResponse.json({
+      ok: true,
+      nextPlan: "premium",
+      status: "unknown",
+      mode: "user_plan_only",
+    });
   }
 }

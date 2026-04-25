@@ -35,6 +35,20 @@ function priceIdFromSubscription(subscription: Stripe.Subscription): string | nu
   return firstItem?.price?.id ?? null;
 }
 
+function periodFieldsFromSubscription(subscription: Stripe.Subscription) {
+  const sub = subscription as unknown as {
+    current_period_start?: number;
+    current_period_end?: number;
+    canceled_at?: number | null;
+  };
+
+  return {
+    currentPeriodStart: toIsoOrNull(sub.current_period_start),
+    currentPeriodEnd: toIsoOrNull(sub.current_period_end),
+    canceledAt: toIsoOrNull(sub.canceled_at ?? null),
+  };
+}
+
 async function resolveUserIdForSubscription(
   supabase: ReturnType<typeof createServiceRoleClient>,
   subscription: Stripe.Subscription,
@@ -135,13 +149,16 @@ export async function POST(request: NextRequest) {
 
         const fallbackUserId =
           session.client_reference_id ?? session.metadata?.user_id ?? null;
-        const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+        const subscription = (await stripe.subscriptions.retrieve(
+          stripeSubscriptionId,
+        )) as unknown as Stripe.Subscription;
         const userId = await resolveUserIdForSubscription(
           supabase,
           subscription,
           typeof fallbackUserId === "string" ? fallbackUserId : null,
         );
         if (!userId) break;
+        const period = periodFieldsFromSubscription(subscription);
 
         const payload: SubscriptionRecordPayload = {
           user_id: userId,
@@ -150,9 +167,9 @@ export async function POST(request: NextRequest) {
           stripe_price_id: priceIdFromSubscription(subscription),
           plan: "premium",
           status: subscription.status,
-          current_period_start: toIsoOrNull(subscription.current_period_start),
-          current_period_end: toIsoOrNull(subscription.current_period_end),
-          canceled_at: toIsoOrNull(subscription.canceled_at),
+          current_period_start: period.currentPeriodStart,
+          current_period_end: period.currentPeriodEnd,
+          canceled_at: period.canceledAt,
           updated_at: new Date().toISOString(),
         };
         await persistSubscriptionState(supabase, payload);
@@ -164,6 +181,7 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const userId = await resolveUserIdForSubscription(supabase, subscription);
         if (!userId) break;
+        const period = periodFieldsFromSubscription(subscription);
 
         const payload: SubscriptionRecordPayload = {
           user_id: userId,
@@ -172,9 +190,9 @@ export async function POST(request: NextRequest) {
           stripe_price_id: priceIdFromSubscription(subscription),
           plan: "premium",
           status: subscription.status,
-          current_period_start: toIsoOrNull(subscription.current_period_start),
-          current_period_end: toIsoOrNull(subscription.current_period_end),
-          canceled_at: toIsoOrNull(subscription.canceled_at),
+          current_period_start: period.currentPeriodStart,
+          current_period_end: period.currentPeriodEnd,
+          canceled_at: period.canceledAt,
           updated_at: new Date().toISOString(),
         };
         await persistSubscriptionState(supabase, payload);

@@ -311,11 +311,12 @@ export function VignobleMap({
 
   const aopOnly = isAopOnlyRegion(selectedRegion);
   const showBottomPanel = subregionsMode && !aopOnly;
+  const showDesktopLegendOverlay = showBottomPanel && !selectedSubregion;
 
   return (
-    <div className="flex h-full flex-col gap-1 md:gap-2 overflow-hidden">
+    <div className="flex h-full flex-col gap-1 overflow-hidden md:gap-2">
       <div
-        className={`relative ${showBottomPanel ? "h-[78%] md:h-[62%]" : "h-full"}`}
+        className={`relative ${showBottomPanel ? "h-[78%] md:h-[98%]" : "h-full"}`}
       >
         <div
           ref={containerRef}
@@ -373,10 +374,27 @@ export function VignobleMap({
         )}
 
         {!ready && <MapLoadingOverlay />}
+
+        {showDesktopLegendOverlay && (
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 hidden md:flex md:bottom-12 md:justify-center">
+            <div className="pointer-events-auto w-fit max-w-full">
+              <SubregionLegend
+                items={subregions.legendItems}
+                onPick={(id) => {
+                  subregions.select(id);
+                  const b = subregions.findBoundsForId(id);
+                  if (b) camera.fitToBounds(b, { padding: 26, maxZoom: 9.2 });
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {showBottomPanel && (
-        <div className="flex-1 overflow-hidden">
+        <div
+          className={`flex-1 overflow-hidden md:min-h-0 md:flex-none ${!selectedSubregion ? "md:hidden" : ""}`}
+        >
           {selectedSubregion ? (
             <SubregionDetailPanel
               subregion={selectedSubregion}
@@ -391,14 +409,16 @@ export function VignobleMap({
               }}
             />
           ) : (
-            <SubregionLegend
-              items={subregions.legendItems}
-              onPick={(id) => {
-                subregions.select(id);
-                const b = subregions.findBoundsForId(id);
-                if (b) camera.fitToBounds(b, { padding: 26, maxZoom: 9.2 });
-              }}
-            />
+            <div className="md:hidden">
+              <SubregionLegend
+                items={subregions.legendItems}
+                onPick={(id) => {
+                  subregions.select(id);
+                  const b = subregions.findBoundsForId(id);
+                  if (b) camera.fitToBounds(b, { padding: 26, maxZoom: 9.2 });
+                }}
+              />
+            </div>
           )}
         </div>
       )}

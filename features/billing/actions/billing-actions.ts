@@ -152,31 +152,40 @@ export async function syncCheckoutSuccessAction(
 ): Promise<CheckoutSyncResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, code: "AUTH_REQUIRED" };
-  if (!sessionId) return { ok: false, code: "INVALID_SESSION" };
 
   try {
     const stripe = getStripe();
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ["subscription"],
-    });
-    if (session.mode !== "subscription") {
-      return { ok: false, code: "NOT_SUBSCRIPTION" };
+    let subscription: Stripe.Subscription | null = null;
+
+    if (sessionId) {
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ["subscription"],
+      });
+      if (session.mode !== "subscription") {
+        return { ok: false, code: "NOT_SUBSCRIPTION" };
+      }
+
+      const sessionUserId =
+        session.client_reference_id ?? session.metadata?.user_id ?? null;
+      if (!sessionUserId || sessionUserId !== user.id) {
+        return { ok: false, code: "USER_MISMATCH" };
+      }
+
+      const rawSubscription = session.subscription;
+      subscription =
+        typeof rawSubscription === "string"
+          ? await stripe.subscriptions.retrieve(rawSubscription)
+          : rawSubscription;
+    } else {
+      // Fallback for old checkout success URLs that don't include session_id.
+      const found = await stripe.subscriptions.search({
+        query: `metadata['user_id']:'${user.id}'`,
+        limit: 1,
+      });
+      subscription = found.data[0] ?? null;
     }
 
-    const sessionUserId =
-      session.client_reference_id ?? session.metadata?.user_id ?? null;
-    if (!sessionUserId || sessionUserId !== user.id) {
-      return { ok: false, code: "USER_MISMATCH" };
-    }
-
-    const rawSubscription = session.subscription;
-    const subscription =
-      typeof rawSubscription === "string"
-        ? await stripe.subscriptions.retrieve(rawSubscription)
-        : rawSubscription;
-    if (!subscription) {
-      return { ok: false, code: "STRIPE_ERROR" };
-    }
+    if (!subscription) return { ok: false, code: "INVALID_SESSION" };
 
     const sub = subscription as unknown as {
       id: string;

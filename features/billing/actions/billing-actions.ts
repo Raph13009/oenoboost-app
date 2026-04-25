@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import type Stripe from "stripe";
 
 import { getAppOrigin } from "@/lib/billing/app-url";
 import { isPremiumStatus } from "@/lib/billing/subscription-status";

@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { syncCheckoutSuccessAction } from "@/features/billing/actions/billing-actions";
-
 function normalizeReturnPath(value: string | null): string {
   if (!value) return "/";
   if (!value.startsWith("/")) return "/";
@@ -34,15 +32,20 @@ export default function CheckoutSuccessPage() {
       });
       // Retry a few times in case webhook/Stripe propagation is still in flight.
       for (let attempt = 1; attempt <= 4; attempt += 1) {
-        const result = await syncCheckoutSuccessAction(sessionId);
+        const response = await fetch("/api/billing/checkout-sync", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        });
+        const result = await response.json();
         if (cancelled) return;
         console.info("[checkout-success] sync attempt result", { attempt, result });
-        if (result.ok) {
+        if (response.ok && result.ok) {
           setSyncState("ok");
           setSyncCode(null);
           return;
         }
-        setSyncCode(result.code);
+        setSyncCode(result.code ?? `HTTP_${response.status}`);
         if (attempt < 4) {
           await new Promise((resolve) => window.setTimeout(resolve, attempt * 700));
         }

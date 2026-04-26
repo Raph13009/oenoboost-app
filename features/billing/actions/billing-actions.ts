@@ -120,7 +120,7 @@ export async function createPremiumCheckoutSession(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/billing/checkout-finalize?session_id={CHECKOUT_SESSION_ID}&return_to=/profil`,
+      success_url: `${origin}/api/billing/checkout-finalize?session_id={CHECKOUT_SESSION_ID}&return_to=/profil`,
       cancel_url: `${origin}/profil?checkout=cancel&return_to=${encodeURIComponent(safeReturnPath)}`,
       client_reference_id: user.id,
       customer: latestSub?.stripe_customer_id || undefined,
@@ -145,9 +145,25 @@ export async function createPremiumCheckoutSession(
     });
     return { ok: true, url: session.url };
   } catch (error) {
+    const err = error as {
+      message?: string;
+      type?: string;
+      code?: string;
+      statusCode?: number;
+      raw?: { message?: string; type?: string; code?: string; param?: string };
+    };
     console.error("[billing][checkout] failed to create session", {
       userId: user.id,
-      error,
+      message: err?.message,
+      type: err?.type,
+      code: err?.code,
+      statusCode: err?.statusCode,
+      rawMessage: err?.raw?.message,
+      rawType: err?.raw?.type,
+      rawCode: err?.raw?.code,
+      rawParam: err?.raw?.param,
+      hasNextPublicAppUrl: Boolean(process.env.NEXT_PUBLIC_APP_URL?.trim()),
+      hasVercelUrl: Boolean(process.env.VERCEL_URL?.trim()),
     });
     return { ok: false, code: "STRIPE_ERROR" };
   }

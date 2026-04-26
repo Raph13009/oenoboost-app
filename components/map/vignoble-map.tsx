@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { getAopMapInfo } from "@/features/vignoble/queries/get-aop-map-info";
+
 import { useMapCamera } from "./camera/use-map-camera";
 import { normalizeHexColor } from "./geo/color";
 import type { Bounds } from "./geo/geometry";
@@ -10,10 +12,13 @@ import {
   normalizeToMultiPolygon,
 } from "./geo/geometry";
 import { useBodyScrollLock } from "./hooks/use-body-scroll-lock";
+import type { AopClickPayload } from "./layers/use-aop-layer";
 import { useAopLayer } from "./layers/use-aop-layer";
 import type { RegionFeatureCollection } from "./layers/use-region-layer";
 import { useRegionLayer } from "./layers/use-region-layer";
 import { useSubregionLayer } from "./layers/use-subregion-layer";
+import type { AopPanelInfo } from "./panels/aop-detail-panel";
+import { AopDetailPanel } from "./panels/aop-detail-panel";
 import { MapActionBar } from "./panels/map-action-bar";
 import { MapLoadingOverlay } from "./panels/map-loading-overlay";
 import { RegionDetailCard } from "./panels/region-detail-card";
@@ -159,12 +164,67 @@ export function VignobleMap({
     ),
   });
 
-  const aop = useAopLayer(map);
+  // AOP click selection — populated lazily once an AOP is clicked. Mutually
+  // exclusive with `selectedSubregion`: clicking one clears the other.
+  const [selectedAop, setSelectedAop] = useState<AopPanelInfo | null>(null);
+  const [selectedAopLoading, setSelectedAopLoading] = useState(false);
+  // Race-guard so the latest click wins when two AOPs are clicked in quick
+  // succession before the first fetch resolves.
+  const aopFetchSeqRef = useRef(0);
+
+  const handleAopClick = useCallback(
+    async ({ aopId, aopName }: AopClickPayload) => {
+      // Mutually exclusive with subregion selection.
+      subregionsRef.current?.select(null);
+
+      const seq = ++aopFetchSeqRef.current;
+      setSelectedAop({
+        id: aopId,
+        slug: null,
+        name: aopName,
+        area_hectares: null,
+        colors_grapes_fr: null,
+        colors_grapes_en: null,
+        region_slug: null,
+      });
+      setSelectedAopLoading(true);
+
+      try {
+        const info = await getAopMapInfo(aopId);
+        if (seq !== aopFetchSeqRef.current) return;
+        if (info) {
+          setSelectedAop({
+            id: info.id,
+            slug: info.slug,
+            name: info.name,
+            area_hectares: info.area_hectares,
+            colors_grapes_fr: info.colors_grapes_fr,
+            colors_grapes_en: info.colors_grapes_en,
+            region_slug: info.region_slug,
+          });
+        }
+      } catch (err) {
+        console.error("[vignoble-map] failed to load AOP info", err);
+      } finally {
+        if (seq === aopFetchSeqRef.current) {
+          setSelectedAopLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const aop = useAopLayer(map, { onClickAop: handleAopClick });
 
   // Latest-ref for the map-click handler. The subregion hook only attaches its
   // click handler once; we keep the orchestrator's current callback live via a
   // ref so it can close over up-to-date hook state.
   const subregionsClickRef = useRef<(id: string) => void>(() => {});
+  // Latest-ref to the subregions API so handleAopClick can clear the
+  // subregion selection without re-binding when the API identity changes.
+  const subregionsRef = useRef<ReturnType<typeof useSubregionLayer> | null>(
+    null,
+  );
 
   const subregions = useSubregionLayer(map, {
     locale,
@@ -174,8 +234,10 @@ export function VignobleMap({
   });
 
   useEffect(() => {
+    subregionsRef.current = subregions;
     subregionsClickRef.current = (id: string) => {
       subregions.select(id);
+      setSelectedAop(null);
       const b = subregions.findBoundsForId(id);
       if (b) camera.fitToBounds(b, { padding: 26, maxZoom: 9.2 });
     };
@@ -237,6 +299,7 @@ export function VignobleMap({
     aop.hide();
     setSubregionsMode(false);
     setLayerMode("subregions");
+    setSelectedAop(null);
     subregionsBoundsRef.current = null;
   }, [subregions, aop]);
 
@@ -245,6 +308,7 @@ export function VignobleMap({
       if (next === layerMode) return;
       if (isAopOnlyRegion(selectedRegion)) return;
       setLayerMode(next);
+      setSelectedAop(null);
       if (next === "aop") {
         subregions.setVisibility(false);
         if (selectedRegion) {
@@ -260,6 +324,14 @@ export function VignobleMap({
     },
     [layerMode, subregions, aop, selectedRegion],
   );
+
+  const handleAopBack = useCallback(() => {
+    setSelectedAop(null);
+    const all = subregionsBoundsRef.current;
+    if (all) {
+      camera.fitToBounds(all, { padding: 22, maxZoom: 8 });
+    }
+  }, [camera]);
 
   // Fit camera to a selected region once its sheet has rendered (so we know
   // how much of the map is visually hidden by the bottom card).
@@ -310,8 +382,14 @@ export function VignobleMap({
   ]);
 
   const aopOnly = isAopOnlyRegion(selectedRegion);
-  const showBottomPanel = subregionsMode && !aopOnly;
-  const showDesktopLegendOverlay = showBottomPanel && !selectedSubregion;
+  const hasPanelContent = Boolean(selectedSubregion || selectedAop);
+  const showBottomPanel = subregionsMode && (!aopOnly || Boolean(selectedAop));
+  const showDesktopLegendOverlay =
+    subregionsMode &&
+    !aopOnly &&
+    !selectedSubregion &&
+    !selectedAop &&
+    layerMode === "subregions";
 
   return (
     <div className="flex h-full flex-col gap-1 overflow-hidden md:gap-2">
@@ -393,7 +471,7 @@ export function VignobleMap({
 
       {showBottomPanel && (
         <div
-          className={`flex-1 overflow-hidden md:min-h-0 md:flex-none ${!selectedSubregion ? "md:hidden" : ""}`}
+          className={`flex-1 overflow-hidden md:min-h-0 md:flex-none ${!hasPanelContent ? "md:hidden" : ""}`}
         >
           {selectedSubregion ? (
             <SubregionDetailPanel
@@ -407,6 +485,14 @@ export function VignobleMap({
                   camera.fitToBounds(all, { padding: 22, maxZoom: 8 });
                 }
               }}
+            />
+          ) : selectedAop ? (
+            <AopDetailPanel
+              aop={selectedAop}
+              loading={selectedAopLoading}
+              locale={locale}
+              strings={strings}
+              onBack={handleAopBack}
             />
           ) : (
             <div className="md:hidden">

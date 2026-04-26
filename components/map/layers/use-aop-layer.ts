@@ -14,6 +14,17 @@ import {
   subOutlineLayerId,
 } from "./layer-ids";
 
+export type AopClickPayload = {
+  aopId: number;
+  aopName: string;
+};
+
+type UseAopLayerOptions = {
+  /** Called when the user clicks an AOP polygon. The smallest hit feature
+   *  wins, mirroring the hover behaviour. */
+  onClickAop?: (payload: AopClickPayload) => void;
+};
+
 type UseAopLayerResult = {
   visible: boolean;
   loading: boolean;
@@ -31,11 +42,23 @@ type UseAopLayerResult = {
  * paint highlight. The hook auto-cleans on unmount or when the map instance
  * changes.
  */
-export function useAopLayer(map: any | null): UseAopLayerResult {
+export function useAopLayer(
+  map: any | null,
+  options?: UseAopLayerOptions,
+): UseAopLayerResult {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const cleanupRef = useRef<(() => void) | null>(null);
+
+  // Keep the latest click handler in a ref so the listener attached inside
+  // `show()` always calls the freshest closure without re-attaching.
+  const onClickAopRef = useRef<UseAopLayerOptions["onClickAop"]>(
+    options?.onClickAop,
+  );
+  useEffect(() => {
+    onClickAopRef.current = options?.onClickAop;
+  });
 
   const runCleanup = useCallback(() => {
     cleanupRef.current?.();
@@ -191,13 +214,27 @@ export function useAopLayer(map: any | null): UseAopLayerResult {
           map.getCanvas().style.cursor = "";
         };
 
+        const onClick = (e: any) => {
+          const feats = map.queryRenderedFeatures(e.point, {
+            layers: [aopFillLayerId],
+          }) as any[];
+          const feature = pickSmallestFeature(feats);
+          if (!feature) return;
+          const aopId = feature.id as number | undefined;
+          const aopName = feature.properties?.aop_name as string | undefined;
+          if (aopId == null || !aopName) return;
+          onClickAopRef.current?.({ aopId, aopName });
+        };
+
         map.on("mousemove", onPointerMove);
         map.on("mouseout", onPointerLeave);
+        map.on("click", aopFillLayerId, onClick);
 
         cleanupRef.current = () => {
           try {
             map.off("mousemove", onPointerMove);
             map.off("mouseout", onPointerLeave);
+            map.off("click", aopFillLayerId, onClick);
           } catch {
             /* ignore */
           }

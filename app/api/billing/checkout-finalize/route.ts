@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getStripe } from "@/lib/stripe/server";
@@ -27,12 +28,47 @@ export async function GET(request: NextRequest) {
     returnTo,
   });
 
-  if (!sessionId) {
-    console.error("[billing][finalize] missing session_id");
+  // Capture any Supabase auth cookies refreshed during this request so we
+  // can forward them on our manual redirect response. Without this, when the
+  // user comes back from Stripe with an expired access_token, the refreshed
+  // cookies set by the SSR client are dropped by NextResponse.redirect(...)
+  // and the next page (/profil) sees an unauthenticated user → /login.
+  const refreshedCookies: { name: string; value: string; options: CookieOptions }[] = [];
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach((c) => refreshedCookies.push(c));
+        },
+      },
+    },
+  );
+  // Trigger token refresh if needed; we don't actually need the user object here.
+  await supabaseAuth.auth.getUser();
+  console.info("[billing][finalize] supabase session refreshed", {
+    sessionId,
+    refreshedCookieCount: refreshedCookies.length,
+  });
+
+  const buildRedirect = (params: Record<string, string>) => {
     const url = new URL("/profil/checkout-success", request.url);
     url.searchParams.set("return_to", returnTo);
-    url.searchParams.set("sync_error", "MISSING_SESSION_ID");
-    return NextResponse.redirect(url);
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    const response = NextResponse.redirect(url);
+    for (const { name, value, options } of refreshedCookies) {
+      response.cookies.set(name, value, options);
+    }
+    return response;
+  };
+
+  if (!sessionId) {
+    console.error("[billing][finalize] missing session_id");
+    return buildRedirect({ sync_error: "MISSING_SESSION_ID" });
   }
 
   try {
@@ -50,10 +86,7 @@ export async function GET(request: NextRequest) {
         sessionId,
         mode: session.mode,
       });
-      const url = new URL("/profil/checkout-success", request.url);
-      url.searchParams.set("return_to", returnTo);
-      url.searchParams.set("sync_error", "NOT_SUBSCRIPTION");
-      return NextResponse.redirect(url);
+      return buildRedirect({ sync_error: "NOT_SUBSCRIPTION" });
     }
 
     const userId = session.client_reference_id ?? session.metadata?.user_id ?? null;
@@ -67,10 +100,7 @@ export async function GET(request: NextRequest) {
       console.error("[billing][finalize] missing user_id in session", {
         sessionId,
       });
-      const url = new URL("/profil/checkout-success", request.url);
-      url.searchParams.set("return_to", returnTo);
-      url.searchParams.set("sync_error", "MISSING_USER_ID");
-      return NextResponse.redirect(url);
+      return buildRedirect({ sync_error: "MISSING_USER_ID" });
     }
 
     const rawSub = session.subscription;
@@ -109,10 +139,7 @@ export async function GET(request: NextRequest) {
         userId,
         error: upsertUser.error,
       });
-      const url = new URL("/profil/checkout-success", request.url);
-      url.searchParams.set("return_to", returnTo);
-      url.searchParams.set("sync_error", "DB_USERS");
-      return NextResponse.redirect(url);
+      return buildRedirect({ sync_error: "DB_USERS" });
     }
     console.info("[billing][finalize] users upsert success", {
       sessionId,
@@ -167,18 +194,12 @@ export async function GET(request: NextRequest) {
       status: sub?.status ?? null,
     });
 
-    const url = new URL("/profil/checkout-success", request.url);
-    url.searchParams.set("return_to", returnTo);
-    url.searchParams.set("synced", "1");
-    return NextResponse.redirect(url);
+    return buildRedirect({ synced: "1" });
   } catch (error) {
     console.error("[billing][finalize] fatal error", {
       sessionId,
       error,
     });
-    const url = new URL("/profil/checkout-success", request.url);
-    url.searchParams.set("return_to", returnTo);
-    url.searchParams.set("sync_error", "STRIPE_ERROR");
-    return NextResponse.redirect(url);
+    return buildRedirect({ sync_error: "STRIPE_ERROR" });
   }
 }

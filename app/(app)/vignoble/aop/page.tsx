@@ -83,13 +83,16 @@ export default async function AopListPage({ searchParams }: Props) {
       ) : (
         <div className="flex flex-col gap-3">
           {data.items.map((item) => {
+            const hasRegion = Boolean(item.region_slug);
             const params = new URLSearchParams({
               from: "list",
               subregion: item.subregion_slug,
             });
             if (qp.region) params.set("listRegion", qp.region);
             if (qp.subregion) params.set("listSubregion", qp.subregion);
-            const href = `/vignoble/${item.region_slug}/${item.slug}?${params.toString()}`;
+            const href = hasRegion
+              ? `/vignoble/${item.region_slug}/${item.slug}?${params.toString()}`
+              : "";
             return (
               <AopBrowseCard
                 key={item.id}

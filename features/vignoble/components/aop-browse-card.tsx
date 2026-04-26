@@ -28,20 +28,35 @@ export function AopBrowseCard({
   const regionName = locale === "fr" ? item.region_name_fr : item.region_name_en;
   const subName =
     locale === "fr" ? item.subregion_name_fr : item.subregion_name_en;
+  const hasContext = Boolean(regionName || subName);
+  const subline = [regionName, subName].filter(Boolean).join(" • ");
+  const isLinkable = href && !href.startsWith("/vignoble//");
 
   return (
     <div className="group flex items-stretch overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-wine/20">
-      <Link href={href} className="flex min-w-0 flex-1 items-center justify-between gap-3 p-4">
-        <div className="min-w-0">
-          <div className="font-heading text-base">{name}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {regionName}
-            {" • "}
-            {subName}
+      {isLinkable ? (
+        <Link
+          href={href}
+          className="flex min-w-0 flex-1 items-center justify-between gap-3 p-4"
+        >
+          <div className="min-w-0">
+            <div className="font-heading text-base">{name}</div>
+            {hasContext ? (
+              <div className="mt-1 text-xs text-muted-foreground">{subline}</div>
+            ) : null}
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-wine" />
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <div className="font-heading text-base">{name}</div>
+            {hasContext ? (
+              <div className="mt-1 text-xs text-muted-foreground">{subline}</div>
+            ) : null}
           </div>
         </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-wine" />
-      </Link>
+      )}
       <div className="flex shrink-0 items-center border-l border-border/50 px-2">
         <AppellationFavoriteButton
           appellationId={String(item.id)}

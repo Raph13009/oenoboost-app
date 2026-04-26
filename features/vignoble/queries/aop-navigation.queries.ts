@@ -16,85 +16,6 @@ export type AopBrowseItem = {
   region_name_en: string;
 };
 
-type AopBrowseRow = {
-  aop:
-    | {
-        id: number;
-        slug: string;
-        name: string;
-        area_hectares: number | null;
-        status: string | null;
-        published_at: string | null;
-        deleted_at: string | null;
-      }
-    | {
-        id: number;
-        slug: string;
-        name: string;
-        area_hectares: number | null;
-        status: string | null;
-        published_at: string | null;
-        deleted_at: string | null;
-      }[]
-    | null;
-  subregion:
-    | {
-        id: number;
-        slug: string;
-        name_fr: string;
-        name_en: string;
-        region_id: string;
-        status: string | null;
-        deleted_at: string | null;
-        region:
-          | {
-              id: string;
-              slug: string;
-              name_fr: string;
-              name_en: string;
-              status: string | null;
-              deleted_at: string | null;
-            }
-          | {
-              id: string;
-              slug: string;
-              name_fr: string;
-              name_en: string;
-              status: string | null;
-              deleted_at: string | null;
-            }[]
-          | null;
-      }
-    | {
-        id: number;
-        slug: string;
-        name_fr: string;
-        name_en: string;
-        region_id: string;
-        status: string | null;
-        deleted_at: string | null;
-        region:
-          | {
-              id: string;
-              slug: string;
-              name_fr: string;
-              name_en: string;
-              status: string | null;
-              deleted_at: string | null;
-            }
-          | {
-              id: string;
-              slug: string;
-              name_fr: string;
-              name_en: string;
-              status: string | null;
-              deleted_at: string | null;
-            }[]
-          | null;
-      }[]
-    | null;
-};
-
 export async function getAopDetailByRegionAndSlug(
   regionSlug: string,
   aopSlug: string,
@@ -147,6 +68,61 @@ export async function getAopDetailByRegionAndSlug(
   return { appellation, subregion, region };
 }
 
+type AopRow = {
+  id: number;
+  slug: string;
+  name: string;
+  area_hectares: number | null;
+  status: string | null;
+  published_at: string | null;
+  deleted_at: string | null;
+};
+
+type SubregionRegionEmbed = {
+  id: string;
+  slug: string;
+  name_fr: string;
+  name_en: string;
+  status: string | null;
+  deleted_at: string | null;
+};
+
+type SubregionEmbed = {
+  id: number;
+  slug: string;
+  name_fr: string;
+  name_en: string;
+  region_id: string;
+  status: string | null;
+  deleted_at: string | null;
+  region: SubregionRegionEmbed | SubregionRegionEmbed[] | null;
+};
+
+type LinkRow = {
+  aop_id: number;
+  subregion_id: number | null;
+  subregion: SubregionEmbed | SubregionEmbed[] | null;
+};
+
+type AopLinkInfo = {
+  subregion_id: number;
+  subregion_slug: string;
+  subregion_name_fr: string;
+  subregion_name_en: string;
+  region_id: string;
+  region_slug: string;
+  region_name_fr: string;
+  region_name_en: string;
+};
+
+/**
+ * List of AOPs for the `/vignoble/aop` browse page.
+ *
+ * Source of truth: the `aop` table — every row in `aop` is exposed here
+ * (subject to draft/soft-delete rules). Subregion + region info is joined
+ * via `aop_subregion_link`, but AOPs without a link still appear so the
+ * full catalog stays visible after content updates.
+ */
 export async function getAopBrowseItems(filters?: {
   regionId?: string;
   subregionId?: string;
@@ -154,50 +130,95 @@ export async function getAopBrowseItems(filters?: {
   const supabase = await createClient();
   const includeDraft = process.env.NODE_ENV !== "production";
 
-  let query = supabase
-    .from("aop_subregion_link")
-    .select(
-      "aop:aop_id(id, slug, name, area_hectares, status, published_at, deleted_at), subregion:subregion_id(id, slug, name_fr, name_en, region_id, status, deleted_at, region:wine_regions!subregions_region_id_fkey(id, slug, name_fr, name_en, status, deleted_at))",
-    );
-
+  // 1) Pull the AOPs straight from the `aop` table.
+  let aopQuery = supabase
+    .from("aop")
+    .select("id, slug, name, area_hectares, status, published_at, deleted_at")
+    .is("deleted_at", null);
   if (!includeDraft) {
-    query = query
-      .eq("aop.status", "published")
-      .not("aop.published_at", "is", null)
-      .eq("subregion.status", "published")
-      .eq("subregion.region.status", "published");
+    aopQuery = aopQuery.eq("status", "published");
   }
-
-  query = query
-    .is("aop.deleted_at", null)
-    .is("subregion.deleted_at", null)
-    .is("subregion.region.deleted_at", null);
-
-  if (filters?.regionId) {
-    query = query.eq("subregion.region_id", filters.regionId);
+  const { data: aopData, error: aopError } = await aopQuery
+    .order("name", { ascending: true })
+    .limit(2000);
+  if (aopError) {
+    throw new Error(`Failed to fetch AOPs: ${aopError.message}`);
   }
-  if (filters?.subregionId) {
-    const subId = Number(filters.subregionId);
-    if (Number.isFinite(subId)) {
-      query = query.eq("subregion.id", subId);
+  const aops = (aopData ?? []) as AopRow[];
+
+  // 2) Pull the subregion links for those AOPs (with subregion + region).
+  const aopIds = aops.map((a) => a.id);
+  const linkByAopId = new Map<number, AopLinkInfo>();
+  if (aopIds.length > 0) {
+    const { data: linkData, error: linkError } = await supabase
+      .from("aop_subregion_link")
+      .select(
+        "aop_id, subregion_id, subregion:subregion_id(id, slug, name_fr, name_en, region_id, status, deleted_at, region:wine_regions!subregions_region_id_fkey(id, slug, name_fr, name_en, status, deleted_at))",
+      )
+      .in("aop_id", aopIds);
+    if (linkError) {
+      throw new Error(`Failed to fetch AOP links: ${linkError.message}`);
+    }
+
+    for (const row of (linkData ?? []) as LinkRow[]) {
+      const subRaw = row.subregion;
+      const sub = Array.isArray(subRaw) ? subRaw[0] ?? null : subRaw;
+      if (!sub || sub.deleted_at) continue;
+      if (!includeDraft && sub.status !== "published") continue;
+      const regionRaw = sub.region;
+      const region = Array.isArray(regionRaw) ? regionRaw[0] ?? null : regionRaw;
+      if (!region || region.deleted_at) continue;
+      if (!includeDraft && region.status !== "published") continue;
+      // Keep the first valid link per AOP — the browse list is a single-line
+      // summary, so we don't duplicate rows for AOPs spanning subregions.
+      if (linkByAopId.has(row.aop_id)) continue;
+      linkByAopId.set(row.aop_id, {
+        subregion_id: sub.id,
+        subregion_slug: sub.slug,
+        subregion_name_fr: sub.name_fr,
+        subregion_name_en: sub.name_en,
+        region_id: region.id,
+        region_slug: region.slug,
+        region_name_fr: region.name_fr,
+        region_name_en: region.name_en,
+      });
     }
   }
 
-  const { data, error } = await query;
-  if (error) {
-    throw new Error(`Failed to fetch AOP browse data: ${error.message}`);
-  }
+  // 3) Apply optional region/subregion filters from the URL.
+  const filteredAops = aops.filter((a) => {
+    if (!filters?.regionId && !filters?.subregionId) return true;
+    const link = linkByAopId.get(a.id);
+    if (!link) return false;
+    if (filters.regionId && link.region_id !== filters.regionId) return false;
+    if (filters.subregionId) {
+      const subId = Number(filters.subregionId);
+      if (!Number.isFinite(subId) || link.subregion_id !== subId) return false;
+    }
+    return true;
+  });
 
-  const rows = (data ?? []) as AopBrowseRow[];
-  const itemsMap = new Map<number, AopBrowseItem>();
+  // 4) Build the final shape consumed by the browse page.
+  const items: AopBrowseItem[] = filteredAops.map((a) => {
+    const link = linkByAopId.get(a.id);
+    return {
+      id: a.id,
+      slug: a.slug,
+      name: a.name,
+      area_hectares: a.area_hectares ?? null,
+      subregion_slug: link?.subregion_slug ?? "",
+      subregion_name_fr: link?.subregion_name_fr ?? "",
+      subregion_name_en: link?.subregion_name_en ?? "",
+      region_slug: link?.region_slug ?? "",
+      region_name_fr: link?.region_name_fr ?? "",
+      region_name_en: link?.region_name_en ?? "",
+    };
+  });
+
+  // 5) Build region/subregion option lists for the filter UI.
   const regionsMap = new Map<
     string,
-    {
-      id: string;
-      slug: string;
-      name_fr: string;
-      name_en: string;
-    }
+    { id: string; slug: string; name_fr: string; name_en: string }
   >();
   const subregionsMap = new Map<
     number,
@@ -209,46 +230,22 @@ export async function getAopBrowseItems(filters?: {
       name_en: string;
     }
   >();
-
-  for (const row of rows) {
-    const aRaw = row.aop;
-    const a = Array.isArray(aRaw) ? aRaw[0] ?? null : aRaw;
-    const subRaw = row.subregion;
-    const sub = Array.isArray(subRaw) ? subRaw[0] ?? null : subRaw;
-    const regionRaw = sub?.region ?? null;
-    const region = Array.isArray(regionRaw) ? regionRaw[0] ?? null : regionRaw;
-    if (!a || !sub || !region) continue;
-    if (itemsMap.has(a.id)) continue;
-
-    itemsMap.set(a.id, {
-      id: a.id,
-      slug: a.slug,
-      name: a.name,
-      area_hectares: a.area_hectares ?? null,
-      subregion_slug: sub.slug,
-      subregion_name_fr: sub.name_fr,
-      subregion_name_en: sub.name_en,
-      region_slug: region.slug,
-      region_name_fr: region.name_fr,
-      region_name_en: region.name_en,
-    });
-
-    if (!regionsMap.has(region.id)) {
-      regionsMap.set(region.id, {
-        id: region.id,
-        slug: region.slug,
-        name_fr: region.name_fr,
-        name_en: region.name_en,
+  for (const link of linkByAopId.values()) {
+    if (!regionsMap.has(link.region_id)) {
+      regionsMap.set(link.region_id, {
+        id: link.region_id,
+        slug: link.region_slug,
+        name_fr: link.region_name_fr,
+        name_en: link.region_name_en,
       });
     }
-
-    if (!subregionsMap.has(sub.id)) {
-      subregionsMap.set(sub.id, {
-        id: String(sub.id),
-        region_id: sub.region_id,
-        slug: sub.slug,
-        name_fr: sub.name_fr,
-        name_en: sub.name_en,
+    if (!subregionsMap.has(link.subregion_id)) {
+      subregionsMap.set(link.subregion_id, {
+        id: String(link.subregion_id),
+        region_id: link.region_id,
+        slug: link.subregion_slug,
+        name_fr: link.subregion_name_fr,
+        name_en: link.subregion_name_en,
       });
     }
   }
@@ -260,8 +257,6 @@ export async function getAopBrowseItems(filters?: {
     subregions: Array.from(subregionsMap.values()).sort((a, b) =>
       a.name_fr.localeCompare(b.name_fr),
     ),
-    items: Array.from(itemsMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    ),
+    items: items.sort((a, b) => a.name.localeCompare(b.name)),
   };
 }

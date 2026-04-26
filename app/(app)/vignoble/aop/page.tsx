@@ -45,9 +45,6 @@ export default async function AopListPage({ searchParams }: Props) {
     },
   };
 
-  const availableSubregions = qp.region
-    ? data.subregions.filter((s) => s.region_id === qp.region)
-    : data.subregions;
   const backHref = qp.from === "home" ? "/" : "/vignoble";
   const backLabel = qp.from === "home" ? dict.common.back : dict.vignoble.backToRegions;
 
@@ -69,11 +66,8 @@ export default async function AopListPage({ searchParams }: Props) {
       <AopFilters
         locale={locale}
         regionLabel={dict.vignoble.regions}
-        subregionLabel={dict.vignoble.subregions}
         selectedRegionId={qp.region ?? ""}
-        selectedSubregionId={qp.subregion ?? ""}
         regions={data.regions}
-        initialSubregions={availableSubregions}
       />
 
       {data.items.length === 0 ? (

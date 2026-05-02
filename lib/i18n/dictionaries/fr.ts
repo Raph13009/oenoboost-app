@@ -359,8 +359,6 @@ const fr = {
     backToRegion: "Retour à la région",
     subregionsLayer: "Sous-régions",
     aopLayer: "AOP",
-    mapGrapesLabel: "Cépages",
-    mapOpenAopDetail: "Voir la fiche AOP",
     backToMap: "Retour à la carte",
     backToSoilNamed: "Retour vers le sol « {name} »",
     viewAllAops: "Voir toutes les AOP",

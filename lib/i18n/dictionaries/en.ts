@@ -360,8 +360,6 @@ const en: Dictionary = {
     backToRegion: "Back to region",
     subregionsLayer: "Subregions",
     aopLayer: "AOP",
-    mapGrapesLabel: "Grape varieties",
-    mapOpenAopDetail: "Open AOP page",
     backToMap: "Back to map",
     backToSoilNamed: "Back to soil “{name}”",
     viewAllAops: "View all AOPs",

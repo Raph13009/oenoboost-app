@@ -30,8 +30,6 @@ export type VignobleMapStrings = {
   departmentsLabel: string;
   hectaresLabel: string;
   totalProductionLabel: string;
-  grapesLabel: string;
-  openAopDetail: string;
   loading: string;
   na: string;
 };

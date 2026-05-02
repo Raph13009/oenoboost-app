@@ -15,6 +15,8 @@ type HorizontalCarouselProps = {
 
 /** Block link clicks only when the track actually scrolled (avoids killing taps on small pointer wobble). */
 const SCROLL_DELTA_TO_SUPPRESS_LINK_PX = 12;
+/** Engage drag (and pointer capture) only past this movement; otherwise the press is treated as a click. */
+const DRAG_ENGAGE_THRESHOLD_PX = 4;
 const INERTIA_FRICTION = 0.94;
 const MIN_VELOCITY = 0.45;
 
@@ -34,6 +36,7 @@ export function HorizontalCarousel({
     lastX: number;
     lastT: number;
     velocity: number;
+    captured: boolean;
   } | null>(null);
   const inertiaRafRef = useRef<number | null>(null);
 
@@ -119,13 +122,14 @@ export function HorizontalCarousel({
         lastX: e.clientX,
         lastT: performance.now(),
         velocity: 0,
+        captured: false,
       };
-      try {
-        el.setPointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
-      }
-      setIsDragging(true);
+      /**
+       * Don't `setPointerCapture` yet — capturing the pointer redirects the
+       * click event to the track <div>, which prevents <Link> children from
+       * navigating on plain clicks. We only capture once movement exceeds the
+       * drag threshold (see `onPointerMove`).
+       */
     },
     [stopInertia],
   );
@@ -138,6 +142,18 @@ export function HorizontalCarousel({
     if (!el) return;
 
     const dx = e.clientX - d.startX;
+
+    if (!d.captured) {
+      if (Math.abs(dx) < DRAG_ENGAGE_THRESHOLD_PX) return;
+      try {
+        el.setPointerCapture(d.pointerId);
+      } catch {
+        /* ignore */
+      }
+      d.captured = true;
+      setIsDragging(true);
+    }
+
     el.scrollLeft = d.startScroll - dx;
 
     const now = performance.now();
@@ -156,6 +172,7 @@ export function HorizontalCarousel({
       const el = trackRef.current;
       const releaseVelocity = d.velocity;
       const startScroll = d.startScroll;
+      const wasCaptured = d.captured;
 
       if (el) {
         suppressClickRef.current =
@@ -168,10 +185,12 @@ export function HorizontalCarousel({
       dragRef.current = null;
       setIsDragging(false);
 
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
+      if (wasCaptured) {
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
       }
 
       if (Math.abs(releaseVelocity) > MIN_VELOCITY) {

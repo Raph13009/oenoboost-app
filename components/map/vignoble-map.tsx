@@ -149,6 +149,7 @@ export function VignobleMap({
   const initialFocusHandledRef = useRef(false);
 
   const camera = useMapCamera(map, { franceBounds });
+  const cameraRef = useRef<ReturnType<typeof useMapCamera> | null>(null);
 
   useRegionLayer(map, {
     geojson: regionGeojson,
@@ -177,6 +178,10 @@ export function VignobleMap({
     async ({ aopId, aopName }: AopClickPayload) => {
       // Mutually exclusive with subregion selection.
       subregionsRef.current?.select(null);
+
+      const bounds = aopRef.current?.getBoundsForAop(aopId);
+      if (bounds) cameraRef.current?.fitToBounds(bounds, { padding: 60, maxZoom: 12 });
+      aopRef.current?.highlightAop(aopId);
 
       const seq = ++aopFetchSeqRef.current;
       setSelectedAop({
@@ -226,6 +231,7 @@ export function VignobleMap({
   const subregionsRef = useRef<ReturnType<typeof useSubregionLayer> | null>(
     null,
   );
+  const aopRef = useRef<ReturnType<typeof useAopLayer> | null>(null);
 
   const subregions = useSubregionLayer(map, {
     locale,
@@ -236,6 +242,8 @@ export function VignobleMap({
 
   useEffect(() => {
     subregionsRef.current = subregions;
+    aopRef.current = aop;
+    cameraRef.current = camera;
     subregionsClickRef.current = (id: string) => {
       subregions.select(id);
       setSelectedAop(null);
@@ -328,11 +336,22 @@ export function VignobleMap({
 
   const handleAopBack = useCallback(() => {
     setSelectedAop(null);
+    aopRef.current?.highlightAop(null);
     const all = subregionsBoundsRef.current;
     if (all) {
       camera.fitToBounds(all, { padding: 22, maxZoom: 8 });
     }
   }, [camera]);
+
+  const handleAopListPick = useCallback(
+    (id: number, name: string) => {
+      const bounds = aop.getBoundsForAop(id);
+      if (bounds) camera.fitToBounds(bounds, { padding: 60, maxZoom: 12 });
+      aop.highlightAop(id);
+      void handleAopClick({ aopId: id, aopName: name });
+    },
+    [aop, camera, handleAopClick],
+  );
 
   // Fit camera to a selected region once its sheet has rendered (so we know
   // how much of the map is visually hidden by the bottom card).
@@ -475,7 +494,7 @@ export function VignobleMap({
             <div className="pointer-events-auto">
               <AopListPanel
                 items={aop.aopItems}
-                onPick={(id, name) => void handleAopClick({ aopId: id, aopName: name })}
+                onPick={handleAopListPick}
               />
             </div>
           </div>
@@ -511,7 +530,7 @@ export function VignobleMap({
             <div className="h-full md:hidden">
               <AopListPanel
                 items={aop.aopItems}
-                onPick={(id, name) => void handleAopClick({ aopId: id, aopName: name })}
+                onPick={handleAopListPick}
               />
             </div>
           ) : (

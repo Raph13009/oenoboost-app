@@ -5,7 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getAopCommunesInBbox } from "@/features/vignoble/queries/get-aop-communes-in-bbox";
 
+import { computeMultiPolygonBounds } from "../geo/geometry";
 import type { Bounds } from "../geo/geometry";
+import type { AopFeature } from "./aop-features";
 import { buildAopFeatures, pickSmallestFeature } from "./aop-features";
 import {
   aopFillLayerId,
@@ -38,6 +40,10 @@ type UseAopLayerResult = {
   hide: () => void;
   /** Toggle. When visible, hides. When hidden, shows for the given bbox (no-op if null). */
   toggle: (bbox: Bounds | null, regionId?: string) => Promise<void>;
+  /** Return the bounding box of a loaded AOP by id, or null if not found. */
+  getBoundsForAop: (id: number) => Bounds | null;
+  /** Visually highlight one AOP (dimming all others). Pass null to reset. */
+  highlightAop: (id: number | null) => void;
 };
 
 /**
@@ -55,6 +61,8 @@ export function useAopLayer(
   const [aopItems, setAopItems] = useState<AopListItem[]>([]);
 
   const cleanupRef = useRef<(() => void) | null>(null);
+  const featuresRef = useRef<AopFeature[]>([]);
+  const selectedAopIdRef = useRef<number | null>(null);
 
   // Keep the latest click handler in a ref so the listener attached inside
   // `show()` always calls the freshest closure without re-attaching.
@@ -74,7 +82,46 @@ export function useAopLayer(
     runCleanup();
     setVisible(false);
     setAopItems([]);
+    featuresRef.current = [];
+    selectedAopIdRef.current = null;
   }, [runCleanup]);
+
+  const getBoundsForAop = useCallback((id: number): Bounds | null => {
+    const feature = featuresRef.current.find((f) => f.id === id);
+    if (!feature) return null;
+    return computeMultiPolygonBounds(feature.geometry);
+  }, []);
+
+  const highlightAop = useCallback(
+    (id: number | null) => {
+      selectedAopIdRef.current = id;
+      if (!map) return;
+      if (id == null) {
+        if (map.getLayer(aopFillLayerId)) {
+          map.setPaintProperty(aopFillLayerId, "fill-opacity", 0.58);
+        }
+        if (map.getLayer(aopOutlineLayerId)) {
+          map.setPaintProperty(aopOutlineLayerId, "line-width", 0.5);
+          map.setPaintProperty(aopOutlineLayerId, "line-color", "rgba(0,0,0,0.10)");
+        }
+      } else {
+        if (map.getLayer(aopFillLayerId)) {
+          map.setPaintProperty(aopFillLayerId, "fill-opacity", [
+            "case", ["==", ["id"], id], 0.9, 0.2,
+          ]);
+        }
+        if (map.getLayer(aopOutlineLayerId)) {
+          map.setPaintProperty(aopOutlineLayerId, "line-width", [
+            "case", ["==", ["id"], id], 2.5, 0.3,
+          ]);
+          map.setPaintProperty(aopOutlineLayerId, "line-color", [
+            "case", ["==", ["id"], id], "rgba(0,0,0,0.45)", "rgba(0,0,0,0.05)",
+          ]);
+        }
+      }
+    },
+    [map],
+  );
 
   const show = useCallback(
     async (bbox: Bounds, regionId?: string) => {
@@ -91,6 +138,8 @@ export function useAopLayer(
         // Sorted descending by area: smaller AOPs paint on top of larger ones
         // so they remain visible (and clickable) where they overlap.
         const features = buildAopFeatures(aops);
+        featuresRef.current = features;
+        selectedAopIdRef.current = null;
 
         setAopItems(
           features
@@ -142,6 +191,23 @@ export function useAopLayer(
         });
 
         const resetHoverPaint = () => {
+          const selId = selectedAopIdRef.current;
+          if (selId != null) {
+            if (map.getLayer(aopFillLayerId)) {
+              map.setPaintProperty(aopFillLayerId, "fill-opacity", [
+                "case", ["==", ["id"], selId], 0.9, 0.2,
+              ]);
+            }
+            if (map.getLayer(aopOutlineLayerId)) {
+              map.setPaintProperty(aopOutlineLayerId, "line-width", [
+                "case", ["==", ["id"], selId], 2.5, 0.3,
+              ]);
+              map.setPaintProperty(aopOutlineLayerId, "line-color", [
+                "case", ["==", ["id"], selId], "rgba(0,0,0,0.45)", "rgba(0,0,0,0.05)",
+              ]);
+            }
+            return;
+          }
           if (map.getLayer(aopFillLayerId)) {
             map.setPaintProperty(aopFillLayerId, "fill-opacity", 0.58);
           }
@@ -296,5 +362,5 @@ export function useAopLayer(
     };
   }, [map, runCleanup]);
 
-  return { visible, loading, aopItems, show, hide, toggle };
+  return { visible, loading, aopItems, show, hide, toggle, getBoundsForAop, highlightAop };
 }

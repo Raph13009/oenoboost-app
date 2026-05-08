@@ -19,6 +19,7 @@ import { useRegionLayer } from "./layers/use-region-layer";
 import { useSubregionLayer } from "./layers/use-subregion-layer";
 import type { AopPanelInfo } from "./panels/aop-detail-panel";
 import { AopDetailPanel } from "./panels/aop-detail-panel";
+import { AopListPanel } from "./panels/aop-list-panel";
 import { MapActionBar } from "./panels/map-action-bar";
 import { MapLoadingOverlay } from "./panels/map-loading-overlay";
 import { RegionDetailCard } from "./panels/region-detail-card";
@@ -383,7 +384,8 @@ export function VignobleMap({
 
   const aopOnly = isAopOnlyRegion(selectedRegion);
   const hasPanelContent = Boolean(selectedSubregion || selectedAop);
-  const showBottomPanel = subregionsMode && (!aopOnly || Boolean(selectedAop));
+  const showAopList = subregionsMode && layerMode === "aop" && !selectedAop && aop.aopItems.length > 0;
+  const showBottomPanel = subregionsMode && (!aopOnly || Boolean(selectedAop) || showAopList);
   const showDesktopLegendOverlay =
     subregionsMode &&
     !aopOnly &&
@@ -467,6 +469,17 @@ export function VignobleMap({
             </div>
           </div>
         )}
+
+        {showAopList && (
+          <div className="pointer-events-none absolute right-3 top-14 bottom-3 z-10 hidden md:flex md:flex-col md:items-end md:justify-start">
+            <div className="pointer-events-auto">
+              <AopListPanel
+                items={aop.aopItems}
+                onPick={(id, name) => void handleAopClick({ aopId: id, aopName: name })}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {showBottomPanel && (
@@ -494,6 +507,13 @@ export function VignobleMap({
               strings={strings}
               onBack={handleAopBack}
             />
+          ) : showAopList ? (
+            <div className="h-full md:hidden">
+              <AopListPanel
+                items={aop.aopItems}
+                onPick={(id, name) => void handleAopClick({ aopId: id, aopName: name })}
+              />
+            </div>
           ) : (
             <div className="md:hidden">
               <SubregionLegend

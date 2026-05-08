@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type {
@@ -15,6 +16,7 @@ export type AopPanelInfo = {
   area_hectares: number | null;
   colors_grapes_fr: string | null;
   colors_grapes_en: string | null;
+  is_grand_cru: boolean;
   region_slug: string | null;
 };
 
@@ -42,7 +44,15 @@ export function AopDetailPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="mb-3 flex items-center justify-between px-1">
-        <div className="font-heading text-lg text-wine">{aop.name}</div>
+        <div className="flex flex-col gap-1">
+          <div className="font-heading text-lg text-wine">{aop.name}</div>
+          {aop.is_grand_cru && (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+              Grand Cru
+            </span>
+          )}
+        </div>
         <Button type="button" size="sm" variant="outline" onClick={onBack}>
           {strings.backToRegion}
         </Button>

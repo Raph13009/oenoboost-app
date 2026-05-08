@@ -72,6 +72,7 @@ export type Appellation = {
   colors_grapes_en: string | null;
   soils_description_fr: string | null;
   soils_description_en: string | null;
+  is_grand_cru: boolean;
   is_premium: boolean;
   status: string;
   published_at: string | null;

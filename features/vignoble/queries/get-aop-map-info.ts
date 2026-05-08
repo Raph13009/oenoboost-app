@@ -7,6 +7,7 @@ export type AopMapInfo = {
   area_hectares: number | null;
   colors_grapes_fr: string | null;
   colors_grapes_en: string | null;
+  is_grand_cru: boolean;
   region_slug: string | null;
   subregion_slug: string | null;
 };
@@ -31,7 +32,7 @@ export async function getAopMapInfo(aopId: number): Promise<AopMapInfo | null> {
   const { data: aop, error: aopError } = await supabase
     .from("aop")
     .select(
-      "id, slug, name, area_hectares, colors_grapes_fr, colors_grapes_en",
+      "id, slug, name, area_hectares, colors_grapes_fr, colors_grapes_en, is_grand_cru",
     )
     .eq("id", aopId)
     .is("deleted_at", null)
@@ -67,6 +68,7 @@ export async function getAopMapInfo(aopId: number): Promise<AopMapInfo | null> {
     area_hectares: (aop.area_hectares ?? null) as number | null,
     colors_grapes_fr: (aop.colors_grapes_fr ?? null) as string | null,
     colors_grapes_en: (aop.colors_grapes_en ?? null) as string | null,
+    is_grand_cru: Boolean(aop.is_grand_cru),
     region_slug: region?.slug ?? null,
     subregion_slug: sub?.slug ?? null,
   };

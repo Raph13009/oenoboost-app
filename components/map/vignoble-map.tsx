@@ -191,6 +191,7 @@ export function VignobleMap({
         area_hectares: null,
         colors_grapes_fr: null,
         colors_grapes_en: null,
+        is_grand_cru: false,
         region_slug: null,
       });
       setSelectedAopLoading(true);
@@ -206,6 +207,7 @@ export function VignobleMap({
             area_hectares: info.area_hectares,
             colors_grapes_fr: info.colors_grapes_fr,
             colors_grapes_en: info.colors_grapes_en,
+            is_grand_cru: info.is_grand_cru,
             region_slug: info.region_slug,
           });
         }

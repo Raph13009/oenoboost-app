@@ -1,0 +1,1 @@
+Read the current `.env.local` file if it exists, then display all variables from `.env.example` as a checklist showing which ones are already set (non-empty) and which are missing. Then ask the user which variables they want to set or update, collect the values interactively, and write the result to `.env.local` without overwriting variables the user didn't mention.

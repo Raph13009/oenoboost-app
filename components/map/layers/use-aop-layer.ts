@@ -25,9 +25,13 @@ type UseAopLayerOptions = {
   onClickAop?: (payload: AopClickPayload) => void;
 };
 
+export type AopListItem = { id: number; name: string; colorHex: string };
+
 type UseAopLayerResult = {
   visible: boolean;
   loading: boolean;
+  /** Sorted-alphabetically list of loaded AOPs — populated after show(), cleared on hide(). */
+  aopItems: AopListItem[];
   /** Fetch AOPs for the given bbox (optionally scoped to a region) and render them.
    *  Re-entrant: replaces any existing layer. */
   show: (bbox: Bounds, regionId?: string) => Promise<void>;
@@ -48,6 +52,7 @@ export function useAopLayer(
 ): UseAopLayerResult {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [aopItems, setAopItems] = useState<AopListItem[]>([]);
 
   const cleanupRef = useRef<(() => void) | null>(null);
 
@@ -68,6 +73,7 @@ export function useAopLayer(
   const hide = useCallback(() => {
     runCleanup();
     setVisible(false);
+    setAopItems([]);
   }, [runCleanup]);
 
   const show = useCallback(
@@ -85,6 +91,12 @@ export function useAopLayer(
         // Sorted descending by area: smaller AOPs paint on top of larger ones
         // so they remain visible (and clickable) where they overlap.
         const features = buildAopFeatures(aops);
+
+        setAopItems(
+          features
+            .map((f) => ({ id: f.id, name: f.properties.aop_name, colorHex: f.properties.color_hex }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        );
 
         if (features.length > 0) {
           map.addSource(aopSourceId, {
@@ -284,5 +296,5 @@ export function useAopLayer(
     };
   }, [map, runCleanup]);
 
-  return { visible, loading, show, hide, toggle };
+  return { visible, loading, aopItems, show, hide, toggle };
 }

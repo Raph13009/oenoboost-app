@@ -405,14 +405,10 @@ export function VignobleMap({
 
   const aopOnly = isAopOnlyRegion(selectedRegion);
   const hasPanelContent = Boolean(selectedSubregion || selectedAop);
-  const showAopList = subregionsMode && layerMode === "aop" && !selectedAop && aop.aopItems.length > 0;
+  const showAopList = subregionsMode && layerMode === "aop" && aop.aopItems.length > 0;
   const showBottomPanel = subregionsMode && (!aopOnly || Boolean(selectedAop) || showAopList);
   const showDesktopLegendOverlay =
-    subregionsMode &&
-    !aopOnly &&
-    !selectedSubregion &&
-    !selectedAop &&
-    layerMode === "subregions";
+    subregionsMode && !aopOnly && layerMode === "subregions";
 
   return (
     <div className="flex h-full flex-col gap-1 overflow-hidden md:gap-2">

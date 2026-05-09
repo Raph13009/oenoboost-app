@@ -1,4 +1,6 @@
-import { createClient } from "@/lib/supabase/client";
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
 
 export type AopMapInfo = {
   id: number;
@@ -22,12 +24,15 @@ type LinkRow = {
 };
 
 /**
- * Fetch the minimal AOP info needed to populate the map's bottom panel when an
- * AOP polygon is clicked: name, surface, grape varieties, and the slugs needed
- * to link to the AOP detail page.
+ * Server action: fetch the minimal AOP info needed to populate the map's
+ * bottom panel when an AOP polygon is clicked. Exposed as a server action so
+ * the client map component has an explicit RPC boundary instead of issuing
+ * Supabase calls from the browser.
  */
 export async function getAopMapInfo(aopId: number): Promise<AopMapInfo | null> {
-  const supabase = createClient();
+  if (!Number.isInteger(aopId) || aopId <= 0) return null;
+
+  const supabase = await createClient();
 
   const { data: aop, error: aopError } = await supabase
     .from("aop")

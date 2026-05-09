@@ -8,6 +8,7 @@ import { getLevelProgress } from "@/features/gamification/levels";
 import { requireUser } from "@/lib/auth/session";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { safeReturnPath } from "@/lib/utils/safe-return-path";
 
 function getInitials(firstName: string | null, lastName: string | null) {
   const first = firstName?.trim()?.[0] ?? "";
@@ -23,13 +24,6 @@ type Props = {
   }>;
 };
 
-function normalizeReturnPath(value: string | undefined): string | null {
-  if (!value) return null;
-  if (!value.startsWith("/")) return null;
-  if (value.startsWith("//")) return null;
-  return value;
-}
-
 export default async function ProfilePage({ searchParams }: Props) {
   const user = await requireUser();
   const locale = await getServerLocale();
@@ -39,7 +33,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const checkoutCancel = qp.checkout === "cancel";
   const subscriptionCanceled = qp.subscription === "canceled";
   const subscriptionCancelError = qp.subscription === "cancel_error";
-  const returnTo = normalizeReturnPath(qp.return_to);
+  const returnTo = safeReturnPath(qp.return_to);
 
   if (checkoutCancel && returnTo) {
     redirect(returnTo);

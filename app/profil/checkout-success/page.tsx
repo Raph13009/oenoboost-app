@@ -4,19 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-function normalizeReturnPath(value: string | null): string {
-  if (!value) return "/";
-  if (!value.startsWith("/")) return "/";
-  if (value.startsWith("//")) return "/";
-  return value;
-}
+import { safeReturnPathOr } from "@/lib/utils/safe-return-path";
 
 export default function CheckoutSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const returnTo = useMemo(
-    () => normalizeReturnPath(searchParams.get("return_to")),
+    () => safeReturnPathOr(searchParams.get("return_to"), "/"),
     [searchParams],
   );
   const synced = searchParams.get("synced") === "1";

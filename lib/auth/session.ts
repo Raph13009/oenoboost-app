@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 import type { Locale } from "@/lib/i18n/config";
 
@@ -26,8 +25,10 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   if (authError || !authUser) return null;
 
-  const admin = createServiceRoleClient();
-  const { data, error } = await admin
+  // Read the user row through the cookie-bound anon client so RLS still
+  // applies — service-role bypasses RLS and is the wrong client for a
+  // per-request lookup of the calling user's own profile.
+  const { data, error } = await supabase
     .from("users")
     .select(
       "id, email, first_name, last_name, avatar_url, role, plan, level, xp, is_verified, locale",

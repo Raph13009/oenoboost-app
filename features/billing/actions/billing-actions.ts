@@ -8,6 +8,7 @@ import { isPremiumStatus } from "@/lib/billing/subscription-status";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getStripe } from "@/lib/stripe/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { safeReturnPathOr } from "@/lib/utils/safe-return-path";
 
 export type CreatePremiumCheckoutResult =
   | { ok: true; url: string }
@@ -55,14 +56,6 @@ async function getLatestSubscriptionForUser(userId: string) {
   return data;
 }
 
-function normalizeReturnPath(value: string | null | undefined): string {
-  if (!value) return "/";
-  if (!value.startsWith("/")) return "/";
-  // Prevent protocol-relative or malformed values.
-  if (value.startsWith("//")) return "/";
-  return value;
-}
-
 function toIsoOrNull(unixSeconds: number | null | undefined): string | null {
   if (!unixSeconds || !Number.isFinite(unixSeconds)) return null;
   return new Date(unixSeconds * 1000).toISOString();
@@ -106,7 +99,7 @@ export async function createPremiumCheckoutSession(
 
     const stripe = getStripe();
     const origin = getAppOrigin();
-    const safeReturnPath = normalizeReturnPath(returnPath);
+    const safeReturnPath = safeReturnPathOr(returnPath, "/");
     const checkoutMetadata = { user_id: user.id };
     const subscriptionMetadata = { user_id: user.id };
     console.info("[billing][checkout] creating checkout session", {

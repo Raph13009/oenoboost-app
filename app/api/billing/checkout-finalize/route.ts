@@ -3,15 +3,9 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getStripe } from "@/lib/stripe/server";
+import { safeReturnPathOr } from "@/lib/utils/safe-return-path";
 
 export const dynamic = "force-dynamic";
-
-function normalizeReturnPath(value: string | null): string {
-  if (!value) return "/";
-  if (!value.startsWith("/")) return "/";
-  if (value.startsWith("//")) return "/";
-  return value;
-}
 
 function toIsoOrNull(unixSeconds: number | null | undefined): string | null {
   if (!unixSeconds || !Number.isFinite(unixSeconds)) return null;
@@ -21,7 +15,7 @@ function toIsoOrNull(unixSeconds: number | null | undefined): string | null {
 export async function GET(request: NextRequest) {
   const sessionId = request.nextUrl.searchParams.get("session_id");
   const session_id = sessionId;
-  const returnTo = normalizeReturnPath(request.nextUrl.searchParams.get("return_to"));
+  const returnTo = safeReturnPathOr(request.nextUrl.searchParams.get("return_to"), "/");
   console.log("[billing][checkout-finalize] called", session_id);
   console.info("[billing][finalize] request received", {
     sessionId,
@@ -48,11 +42,16 @@ export async function GET(request: NextRequest) {
       },
     },
   );
-  // Trigger token refresh if needed; we don't actually need the user object here.
-  await supabaseAuth.auth.getUser();
+  // Refresh the session and capture the calling user — we'll later assert
+  // that the Stripe session was opened by this same user, otherwise an
+  // attacker could finalize someone else's checkout.
+  const {
+    data: { user: callingUser },
+  } = await supabaseAuth.auth.getUser();
   console.info("[billing][finalize] supabase session refreshed", {
     sessionId,
     refreshedCookieCount: refreshedCookies.length,
+    hasCallingUser: Boolean(callingUser),
   });
 
   const buildRedirect = (params: Record<string, string>) => {
@@ -101,6 +100,15 @@ export async function GET(request: NextRequest) {
         sessionId,
       });
       return buildRedirect({ sync_error: "MISSING_USER_ID" });
+    }
+
+    if (!callingUser || callingUser.id !== userId) {
+      console.error("[billing][finalize] calling user does not match session user_id", {
+        sessionId,
+        sessionUserId: userId,
+        callingUserId: callingUser?.id ?? null,
+      });
+      return buildRedirect({ sync_error: "USER_MISMATCH" });
     }
 
     const rawSub = session.subscription;

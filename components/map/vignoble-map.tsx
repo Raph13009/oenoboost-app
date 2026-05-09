@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getAopMapInfo } from "@/features/vignoble/queries/get-aop-map-info";
+import { getAopMapInfo } from "@/features/vignoble/actions/get-aop-map-info";
 
 import { useMapCamera } from "./camera/use-map-camera";
 import { normalizeHexColor } from "./geo/color";

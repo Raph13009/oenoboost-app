@@ -11,6 +11,7 @@ import {
   computeMultiPolygonBounds,
   normalizeToMultiPolygon,
 } from "../geo/geometry";
+import { raisePlaceLabelsToTop } from "../map-label-utils";
 import type { SubregionLegendItem, VignobleMapLocale } from "../types";
 import {
   fillLayerId,
@@ -229,6 +230,8 @@ export function useSubregionLayer(
             "line-opacity": 0.9,
           },
         });
+
+        raisePlaceLabelsToTop(map);
 
         // Build the sorted legend. If a region only has one subregion and it
         // shares the region's name, treat the legend as empty (redundant).

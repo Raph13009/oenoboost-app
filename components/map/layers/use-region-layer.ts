@@ -4,6 +4,7 @@
 import { useEffect, useRef } from "react";
 
 import type { Bounds } from "../geo/geometry";
+import { raisePlaceLabelsToTop } from "../map-label-utils";
 import { fillLayerId, sourceId } from "./layer-ids";
 
 type RegionLayerFeature = {
@@ -127,6 +128,8 @@ export function useRegionLayer(
           "fill-outline-color": "rgba(124,39,54,0.015)",
         },
       });
+
+      raisePlaceLabelsToTop(map);
 
       map.on("mousemove", fillLayerId, onMouseMove);
       map.on("mouseleave", fillLayerId, onMouseLeave);

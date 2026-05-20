@@ -7,6 +7,7 @@ import { getAopCommunesInBbox } from "@/features/vignoble/queries/get-aop-commun
 
 import { computeMultiPolygonBounds } from "../geo/geometry";
 import type { Bounds } from "../geo/geometry";
+import { raisePlaceLabelsToTop } from "../map-label-utils";
 import type { AopFeature } from "./aop-features";
 import { buildAopFeatures, pickSmallestFeature } from "./aop-features";
 import {
@@ -177,6 +178,8 @@ export function useAopLayer(
           if (map.getLayer(subOutlineLayerId)) {
             map.moveLayer(subOutlineLayerId);
           }
+
+          raisePlaceLabelsToTop(map);
         }
 
         let hoveredAopId: number | null = null;

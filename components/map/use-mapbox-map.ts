@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 
 import "mapbox-gl/dist/mapbox-gl.css";
 
+import { applyCityLabelStyle } from "./map-label-utils";
+
 type UseMapboxMapOptions = {
   center: [number, number];
   zoom: number;
@@ -18,8 +20,8 @@ type UseMapboxMapResult = {
 
 /**
  * Lazy-loads `mapbox-gl` (SSR-safe), instantiates a Map in the given container,
- * keeps the canvas in sync with layout via a ResizeObserver, hides label symbols
- * for a minimal look, and flips `ready` when the style has loaded.
+ * keeps the canvas in sync with layout via a ResizeObserver, configures city
+ * labels (French names, noise layers hidden), and flips `ready` when loaded.
  *
  * The initial center/zoom are captured once; changing them does not re-create
  * the map. Consumers that need to pan/zoom later should do so imperatively.
@@ -92,33 +94,26 @@ export function useMapboxMap(
         resizeObserver.observe(containerRef.current);
       }
 
-      instance.on("load", () => {
+      const onStyleReady = () => {
         if (!instance) return;
-
-        // Minimal look: hide most label symbols to keep the map premium.
         try {
-          const layers = instance.getStyle()?.layers ?? [];
-          for (const layer of layers) {
-            if (
-              layer.type === "symbol" &&
-              typeof layer.id === "string" &&
-              layer.id.includes("label")
-            ) {
-              instance.setLayoutProperty(layer.id, "visibility", "none");
-            }
-          }
+          applyCityLabelStyle(instance);
         } catch {
           /* ignore */
         }
+      };
 
+      instance.on("load", () => {
+        onStyleReady();
         try {
           instance.resize();
         } catch {
           /* ignore */
         }
-
         setReady(true);
       });
+
+      instance.on("style.load", onStyleReady);
     })();
 
     return () => {

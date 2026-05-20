@@ -113,10 +113,10 @@ export function useAopLayer(
         }
         if (map.getLayer(aopOutlineLayerId)) {
           map.setPaintProperty(aopOutlineLayerId, "line-width", [
-            "case", ["==", ["id"], id], 2.5, 0.3,
+            "case", ["==", ["id"], id], 3, 0.85,
           ]);
           map.setPaintProperty(aopOutlineLayerId, "line-color", [
-            "case", ["==", ["id"], id], "rgba(0,0,0,0.45)", "rgba(0,0,0,0.05)",
+            "case", ["==", ["id"], id], "rgba(0,0,0,0.55)", "rgba(0,0,0,0.14)",
           ]);
         }
       }
@@ -203,10 +203,10 @@ export function useAopLayer(
             }
             if (map.getLayer(aopOutlineLayerId)) {
               map.setPaintProperty(aopOutlineLayerId, "line-width", [
-                "case", ["==", ["id"], selId], 2.5, 0.3,
+                "case", ["==", ["id"], selId], 3, 0.85,
               ]);
               map.setPaintProperty(aopOutlineLayerId, "line-color", [
-                "case", ["==", ["id"], selId], "rgba(0,0,0,0.45)", "rgba(0,0,0,0.05)",
+                "case", ["==", ["id"], selId], "rgba(0,0,0,0.55)", "rgba(0,0,0,0.14)",
               ]);
             }
             return;
@@ -259,14 +259,14 @@ export function useAopLayer(
               map.setPaintProperty(aopOutlineLayerId, "line-width", [
                 "case",
                 ["==", ["id"], newAopId],
-                1.6,
-                0.5,
+                3,
+                0.85,
               ]);
               map.setPaintProperty(aopOutlineLayerId, "line-color", [
                 "case",
                 ["==", ["id"], newAopId],
-                "rgba(0,0,0,0.32)",
-                "rgba(0,0,0,0.10)",
+                "rgba(0,0,0,0.55)",
+                "rgba(0,0,0,0.14)",
               ]);
             }
           }

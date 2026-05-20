@@ -1,5 +1,6 @@
 import {
   buildConicGradient,
+  WINE_COLOR_ORDER,
   type WineColorBreakdown,
   type WineColorKey,
 } from "../lib/wine-color-breakdown";
@@ -32,12 +33,10 @@ const LABEL_BY_KEY: Record<WineColorKey, keyof AopWineColorPieChartLabels> = {
 };
 
 export function AopWineColorPieChart({ breakdown, labels }: Props) {
-  const segments: Array<{ key: WineColorKey; value: number }> = [
-    { key: "red", value: breakdown.red },
-    { key: "white", value: breakdown.white },
-    { key: "sparkling", value: breakdown.sparkling },
-    { key: "liqueur", value: breakdown.liqueur },
-  ].filter((s) => s.value > 0);
+  const segments = WINE_COLOR_ORDER.map((key) => ({
+    key,
+    value: breakdown[key],
+  })).filter((s) => s.value > 0);
 
   const gradient = buildConicGradient(breakdown, SEGMENT_COLORS);
 

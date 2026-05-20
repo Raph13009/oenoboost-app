@@ -55,7 +55,7 @@ export function hideMapNoiseLayers(map: any): void {
 }
 
 /** Prefer French names on Mapbox symbol layers (cities, towns, etc.). */
-export function applyMapLanguage(map: any, _locale: "fr"): void {
+export function applyMapLanguage(map: any): void {
   const layers = map.getStyle()?.layers ?? [];
   const textField: any = [
     "coalesce",
@@ -96,6 +96,6 @@ export function raisePlaceLabelsToTop(map: any): void {
 
 export function applyCityLabelStyle(map: any): void {
   hideMapNoiseLayers(map);
-  applyMapLanguage(map, "fr");
+  applyMapLanguage(map);
   raisePlaceLabelsToTop(map);
 }

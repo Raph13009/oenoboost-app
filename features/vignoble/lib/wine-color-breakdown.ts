@@ -4,6 +4,13 @@ export type WineColorKey = "red" | "white" | "sparkling" | "liqueur";
 
 export type WineColorBreakdown = Record<WineColorKey, number>;
 
+export const WINE_COLOR_ORDER = [
+  "red",
+  "white",
+  "sparkling",
+  "liqueur",
+] as const satisfies readonly WineColorKey[];
+
 /** Returns segment percentages when at least one value is set and total > 0. */
 export function getWineColorBreakdown(
   appellation: Pick<
@@ -42,12 +49,10 @@ export function buildConicGradient(
   breakdown: WineColorBreakdown,
   colors: Record<WineColorKey, string>,
 ): string {
-  const segments: Array<{ key: WineColorKey; value: number }> = [
-    { key: "red", value: breakdown.red },
-    { key: "white", value: breakdown.white },
-    { key: "sparkling", value: breakdown.sparkling },
-    { key: "liqueur", value: breakdown.liqueur },
-  ].filter((s) => s.value > 0);
+  const segments = WINE_COLOR_ORDER.map((key) => ({
+    key,
+    value: breakdown[key],
+  })).filter((s) => s.value > 0);
 
   let cursor = 0;
   const stops = segments.map((segment) => {

@@ -3,6 +3,7 @@ node_modules
 .env.local
 .DS_Store
 .cursor/mcp.json
+.claude/worktrees/
 .next
 *.tsbuildinfo
 __pycache__/

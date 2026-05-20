@@ -40,6 +40,8 @@
     "node_modules",
     "data/**/*.ts",
     "data/**/*.mts",
-    "scripts/**"
+    "scripts/**",
+    "vitest.config.ts",
+    "**/*.test.ts"
   ]
 }

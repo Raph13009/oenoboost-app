@@ -376,6 +376,12 @@ const fr = {
       "Créez un compte pour sauvegarder vos appellations favorites.",
     favoriteAuthLogin: "Se connecter",
     favoriteAuthRegister: "Créer un compte",
+    wineColorBreakdownTitle: "Répartition par couleur",
+    wineColorRed: "Vin rouge",
+    wineColorWhite: "Vin blanc",
+    wineColorSparkling: "Vin effervescent",
+    wineColorLiqueur: "Vin liqueureux",
+    climateTitle: "Climat",
   },
   home: {
     subtitle:

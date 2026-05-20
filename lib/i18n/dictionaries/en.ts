@@ -377,6 +377,12 @@ const en: Dictionary = {
       "Create an account to save your favorite appellations.",
     favoriteAuthLogin: "Sign in",
     favoriteAuthRegister: "Create an account",
+    wineColorBreakdownTitle: "Breakdown by wine color",
+    wineColorRed: "Red wine",
+    wineColorWhite: "White wine",
+    wineColorSparkling: "Sparkling wine",
+    wineColorLiqueur: "Fortified / liqueur wine",
+    climateTitle: "Climate",
   },
   home: {
     subtitle:

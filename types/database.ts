@@ -72,7 +72,13 @@ export type Appellation = {
   colors_grapes_en: string | null;
   soils_description_fr: string | null;
   soils_description_en: string | null;
+  climate_fr: string | null;
+  climate_en: string | null;
   is_grand_cru: boolean;
+  wine_pct_red: number | null;
+  wine_pct_white: number | null;
+  wine_pct_sparkling: number | null;
+  wine_pct_liqueur: number | null;
   is_premium: boolean;
   status: string;
   published_at: string | null;

@@ -213,6 +213,14 @@ export default async function RegionSubregionOrAopPage({
           relatedSoils: dict.sols.relatedSoils,
           emptyRelatedSoils: dict.sols.noRelatedSoils,
         }}
+        wineColorLabels={{
+          title: dict.vignoble.wineColorBreakdownTitle,
+          red: dict.vignoble.wineColorRed,
+          white: dict.vignoble.wineColorWhite,
+          sparkling: dict.vignoble.wineColorSparkling,
+          liqueur: dict.vignoble.wineColorLiqueur,
+        }}
+        climateTitle={dict.vignoble.climateTitle}
       />
     </div>
   );

@@ -6,6 +6,9 @@ import { getContent } from "@/lib/i18n/get-content";
 import type { RelatedSoil } from "@/features/sols/types";
 import { PremiumGate } from "@/components/shared/premium-gate";
 
+import { getWineColorBreakdown } from "../lib/wine-color-breakdown";
+import type { AopWineColorPieChartLabels } from "./aop-wine-color-pie-chart";
+import { AopWineColorPieChart } from "./aop-wine-color-pie-chart";
 import type { AppellationFavoriteLabels } from "./appellation-favorite-button";
 import { AppellationFavoriteButton } from "./appellation-favorite-button";
 
@@ -27,6 +30,8 @@ type AppellationDetailProps = {
     relatedSoils: string;
     emptyRelatedSoils: string;
   };
+  wineColorLabels?: AopWineColorPieChartLabels;
+  climateTitle?: string;
 };
 
 export function AppellationDetail({
@@ -37,11 +42,16 @@ export function AppellationDetail({
   userPlan,
   relatedSoils = [],
   soilLabels,
+  wineColorLabels,
+  climateTitle,
 }: AppellationDetailProps) {
   const name = appellation.name;
+  const wineColorBreakdown = getWineColorBreakdown(appellation);
   const history = getContent(appellation, "history", locale);
   const colorsGrapes = getContent(appellation, "colors_grapes", locale);
   const soils = getContent(appellation, "soils_description", locale);
+  const climate = getContent(appellation, "climate", locale).trim();
+  const showClimate = climate.length > 0;
   const na = "...";
   const formatNumber = (value: number | null) =>
     value === null ? na : Number(value).toLocaleString(locale);
@@ -88,6 +98,15 @@ export function AppellationDetail({
 
       <PremiumGate isPremium={appellation.is_premium} userPlan={userPlan}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+        {wineColorBreakdown && wineColorLabels && (
+          <div className="md:col-span-2">
+            <AopWineColorPieChart
+              breakdown={wineColorBreakdown}
+              labels={wineColorLabels}
+            />
+          </div>
+        )}
+
         <section className="rounded-xl border border-border bg-card p-4 md:p-5">
           <h2 className="font-heading text-xl font-semibold">
             {locale === "fr" ? "Chiffres clés" : "Key figures"}
@@ -178,6 +197,17 @@ export function AppellationDetail({
             </div>
           )}
         </section>
+
+        {showClimate && (
+          <section className="rounded-xl border border-border bg-card p-4 md:p-5 md:col-span-2">
+            <h2 className="font-heading text-xl font-semibold">
+              {climateTitle ?? (locale === "fr" ? "Climat" : "Climate")}
+            </h2>
+            <p className="mt-3 max-w-prose whitespace-pre-line leading-relaxed text-foreground/85">
+              {climate}
+            </p>
+          </section>
+        )}
         </div>
       </PremiumGate>
     </div>

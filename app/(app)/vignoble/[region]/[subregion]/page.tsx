@@ -143,7 +143,11 @@ export default async function RegionSubregionOrAopPage({
     if (qp.from === "map" && qp.subregion) {
       return `/vignoble?region=${regionSlug}&subregion=${qp.subregion}`;
     }
-    return `/vignoble?region=${regionSlug}&subregion=${aop.subregion.slug}`;
+    // `aop.subregion` is best effort. Fall back to the region level when no
+    // linked subregion is available so back navigation still works.
+    return aop.subregion
+      ? `/vignoble?region=${regionSlug}&subregion=${aop.subregion.slug}`
+      : `/vignoble?region=${regionSlug}`;
   })();
   const backLabel = (() => {
     if (isFromFavorites) return dict.favorites.backToFavorites;
@@ -186,7 +190,7 @@ export default async function RegionSubregionOrAopPage({
         favorite={{
           appellationId: String(aop.appellation.id),
           regionSlug: aop.region.slug,
-          subregionSlug: aop.subregion.slug,
+          subregionSlug: aop.subregion?.slug ?? "",
           aopSlug: aop.appellation.slug,
           initialFavorited: initialAopFavorited,
           isLoggedIn: !!user,

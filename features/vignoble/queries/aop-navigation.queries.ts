@@ -21,7 +21,7 @@ export async function getAopDetailByRegionAndSlug(
   aopSlug: string,
 ): Promise<{
   appellation: Appellation;
-  subregion: Subregion;
+  subregion: Subregion | null;
   region: WineRegion;
 } | null> {
   const region = await getRegionBySlug(regionSlug);
@@ -30,6 +30,13 @@ export async function getAopDetailByRegionAndSlug(
   const appellation = await getAppellationBySlug(aopSlug);
   if (!appellation) return null;
 
+  // Resolve the AOP's owning subregion. The relation is best effort: it
+  // powers back navigation and favourite revalidation, but it is not a hard
+  // requirement for rendering the page. The map source (the commune to AOP
+  // join) can surface AOPs that have no row in `aop_subregion_link`, or
+  // whose linked subregion is soft deleted. Those clicks must still land on
+  // the detail page instead of 404, since the appellation slug is globally
+  // unique and identifies a single AOP on its own.
   const supabase = await createClient();
   const { data: links, error: linksError } = await supabase
     .from("aop_subregion_link")
@@ -44,26 +51,30 @@ export async function getAopDetailByRegionAndSlug(
   const subregionIds = (links ?? [])
     .map((l) => l.subregion_id as number | null)
     .filter((id): id is number => typeof id === "number");
-  if (subregionIds.length === 0) return null;
 
-  const { data: subregions, error: subregionsError } = await supabase
-    .from("subregions")
-    .select(
-      "id, region_id, slug, name_fr, name_en, description_fr, description_en, area_hectares, centroid_lat, centroid_lng, color_hex, map_order, status, published_at, created_at, updated_at, deleted_at",
-    )
-    .in("id", subregionIds)
-    .eq("region_id", region.id)
-    .is("deleted_at", null)
-    .limit(1);
+  let subregion: Subregion | null = null;
+  if (subregionIds.length > 0) {
+    const { data: subregions, error: subregionsError } = await supabase
+      .from("subregions")
+      .select(
+        "id, region_id, slug, name_fr, name_en, description_fr, description_en, area_hectares, centroid_lat, centroid_lng, color_hex, map_order, status, published_at, created_at, updated_at, deleted_at",
+      )
+      .in("id", subregionIds)
+      .is("deleted_at", null);
 
-  if (subregionsError) {
-    throw new Error(
-      `Failed to fetch subregion for appellation: ${subregionsError.message}`,
-    );
+    if (subregionsError) {
+      throw new Error(
+        `Failed to fetch subregion for appellation: ${subregionsError.message}`,
+      );
+    }
+
+    const rows = (subregions ?? []) as Subregion[];
+    // Prefer a subregion that belongs to the URL region, but fall back to the
+    // first non deleted match if none does. The appellation already pins the
+    // detail content; the subregion is only used for navigation context.
+    subregion =
+      rows.find((row) => row.region_id === region.id) ?? rows[0] ?? null;
   }
-
-  const subregion = ((subregions ?? [])[0] ?? null) as Subregion | null;
-  if (!subregion) return null;
 
   return { appellation, subregion, region };
 }

@@ -8,19 +8,11 @@ export async function getAppellations(
   subregionId: number,
 ): Promise<Appellation[]> {
   const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
-  let query = supabase
+  const query = supabase
     .from("aop_subregion_link")
     .select(`aop:aop_id(${AOP_COLUMNS})`)
     .eq("subregion_id", subregionId);
-
-  if (!includeDraft) {
-    query = query.or(
-      "status.eq.published,published_at.not.is.null",
-      { referencedTable: "aop" },
-    );
-  }
 
   const { data, error } = await query;
   if (error) {
@@ -46,17 +38,12 @@ export async function getAppellationBySlug(
   slug: string,
 ): Promise<Appellation | null> {
   const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
-  let query = supabase
+  const query = supabase
     .from("aop")
     .select(AOP_COLUMNS)
     .eq("slug", slug)
     .is("deleted_at", null);
-
-  if (!includeDraft) {
-    query = query.or("status.eq.published,published_at.not.is.null");
-  }
 
   const { data, error } = await query.single();
 

@@ -9,7 +9,6 @@ export async function getPublishedNewsArticles(): Promise<NewsArticleListItem[]>
   const { data, error } = await supabase
     .from("news_articles")
     .select(LIST_COLUMNS)
-    .eq("status", "published")
     .is("deleted_at", null)
     .order("published_at", { ascending: false, nullsFirst: false });
 
@@ -35,7 +34,6 @@ export async function getPublishedNewsArticleBySlug(
       `${LIST_COLUMNS}, content_fr, content_en`,
     )
     .eq("slug", slug)
-    .eq("status", "published")
     .is("deleted_at", null)
     .maybeSingle();
 

@@ -38,11 +38,5 @@ export async function getSubregionsByRegionId(
     );
   }
 
-  const includeDraft = process.env.NODE_ENV !== "production";
-  const rows = (data ?? []) as VignobleMapSubregion[];
-  return includeDraft
-    ? rows
-    : rows.filter(
-        (r) => r.status === "published" || r.published_at != null,
-      );
+  return (data ?? []) as VignobleMapSubregion[];
 }

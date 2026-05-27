@@ -9,7 +9,6 @@ export async function getPublishedVinificationTypes(): Promise<VinificationType[
   const { data, error } = await supabase
     .from("vinification_types")
     .select(COLUMNS)
-    .eq("status", "published")
     .is("deleted_at", null)
     .order("carousel_order", { ascending: true, nullsFirst: false });
 
@@ -28,7 +27,6 @@ export async function getVinificationTypeBySlug(
     .from("vinification_types")
     .select(COLUMNS)
     .eq("slug", slug)
-    .eq("status", "published")
     .is("deleted_at", null)
     .maybeSingle();
 

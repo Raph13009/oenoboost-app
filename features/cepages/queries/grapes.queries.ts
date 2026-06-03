@@ -6,7 +6,6 @@ const GRAPE_COLUMNS =
 
 export async function getGrapes(type?: "red" | "white") {
   const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
   let query = supabase
     .from("grapes")
@@ -18,10 +17,6 @@ export async function getGrapes(type?: "red" | "white") {
     query = query.eq("type", type);
   }
 
-  if (!includeDraft) {
-    query = query.eq("status", "published").not("published_at", "is", null);
-  }
-
   const { data, error } = await query;
   if (error) throw new Error(`Failed to fetch grapes: ${error.message}`);
   return (data ?? []) as Grape[];
@@ -29,17 +24,12 @@ export async function getGrapes(type?: "red" | "white") {
 
 export async function getGrapeBySlug(slug: string) {
   const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
-  let query = supabase
+  const query = supabase
     .from("grapes")
     .select(GRAPE_COLUMNS)
     .eq("slug", slug)
     .is("deleted_at", null);
-
-  if (!includeDraft) {
-    query = query.eq("status", "published").not("published_at", "is", null);
-  }
 
   const { data, error } = await query.single();
   if (error) {
@@ -49,19 +39,14 @@ export async function getGrapeBySlug(slug: string) {
   return data as Grape;
 }
 
-/** Total published grapes (same filters as list queries). */
+/** Total grapes (same filters as list queries). */
 export async function getGrapesCount() {
   const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
-  let query = supabase
+  const query = supabase
     .from("grapes")
     .select("*", { count: "exact", head: true })
     .is("deleted_at", null);
-
-  if (!includeDraft) {
-    query = query.eq("status", "published").not("published_at", "is", null);
-  }
 
   const { count, error } = await query;
   if (error) throw new Error(`Failed to count grapes: ${error.message}`);

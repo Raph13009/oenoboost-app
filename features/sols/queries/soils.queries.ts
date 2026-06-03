@@ -23,7 +23,6 @@ export async function getPublishedSoils() {
   const { data, error } = await supabase
     .from("soil_types")
     .select(SOIL_COLUMNS)
-    .eq("status", "published")
     .order("carousel_order", { ascending: true, nullsFirst: false });
 
   if (error) {
@@ -39,7 +38,6 @@ export async function getSoilBySlug(slug: string) {
     .from("soil_types")
     .select(SOIL_COLUMNS)
     .eq("slug", slug)
-    .eq("status", "published")
     .maybeSingle();
 
   if (error) {
@@ -78,7 +76,6 @@ export async function getRelatedSoilsForAppellation(
     .from("soil_types")
     .select("id, slug, name_fr, is_premium")
     .in("id", soilIds)
-    .eq("status", "published")
     .order("carousel_order", { ascending: true, nullsFirst: false })
     .order("name_fr", { ascending: true });
 
@@ -128,20 +125,11 @@ export async function getRelatedAopsForSoil(soilId: string): Promise<RelatedAop[
     return [];
   }
 
-  /** Aligné sur `getAppellationBySlug` / `getAppellations` : ne pas exiger published_at si status=published. */
-  const includeDraftAppellations = process.env.NODE_ENV !== "production";
-
-  let aopsQuery = supabase
+  const aopsQuery = supabase
     .from("aop")
     .select("id, slug, name, status, published_at, deleted_at")
     .in("id", aopIds)
     .is("deleted_at", null);
-
-  if (!includeDraftAppellations) {
-    aopsQuery = aopsQuery.or(
-      "status.eq.published,published_at.not.is.null",
-    );
-  }
 
   const { data: aops, error: aopsError } = await aopsQuery;
 
@@ -164,8 +152,7 @@ export async function getRelatedAopsForSoil(soilId: string): Promise<RelatedAop[
       reason: "no_aops_after_filter",
       soilId,
       requestedAopIds: aopIds,
-      hint:
-        "prod: or(status=published, published_at non null) + deleted_at null ; dev: tout sauf deleted",
+      hint: "filter: deleted_at null only (draft included)",
     });
     return [];
   }

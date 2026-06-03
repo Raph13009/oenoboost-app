@@ -17,7 +17,6 @@ export async function getPublishedDictionaryTerms(): Promise<DictionaryTerm[]> {
   const { data, error } = await supabase
     .from("dictionary_terms")
     .select(COLUMNS)
-    .eq("status", "published")
     .is("deleted_at", null)
     .order("term_fr", { ascending: true, nullsFirst: false });
 

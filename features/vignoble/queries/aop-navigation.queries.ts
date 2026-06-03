@@ -145,16 +145,12 @@ export async function getAopBrowseItems(filters?: {
   subregionId?: string;
 }) {
   const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
   // 1) Pull the AOPs straight from the `aop` table.
-  let aopQuery = supabase
+  const aopQuery = supabase
     .from("aop")
     .select("id, slug, name, area_hectares, status, published_at, deleted_at")
     .is("deleted_at", null);
-  if (!includeDraft) {
-    aopQuery = aopQuery.eq("status", "published");
-  }
   const { data: aopData, error: aopError } = await aopQuery
     .order("name", { ascending: true })
     .limit(2000);
@@ -184,11 +180,9 @@ export async function getAopBrowseItems(filters?: {
       const subRaw = row.subregion;
       const sub = Array.isArray(subRaw) ? subRaw[0] ?? null : subRaw;
       if (!sub || sub.deleted_at) continue;
-      if (!includeDraft && sub.status !== "published") continue;
       const regionRaw = sub.region;
       const region = Array.isArray(regionRaw) ? regionRaw[0] ?? null : regionRaw;
       if (!region || region.deleted_at) continue;
-      if (!includeDraft && region.status !== "published") continue;
       const entry: AopLinkInfo = {
         subregion_id: sub.id,
         subregion_slug: sub.slug,

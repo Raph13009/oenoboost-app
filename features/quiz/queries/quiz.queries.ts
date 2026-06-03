@@ -53,8 +53,7 @@ export async function getQuizCatalogSummariesForUser(
   const supabase = await createClient();
   const { data: quizzes, error } = await supabase
     .from("quizzes")
-    .select("id, type, question_count")
-    .eq("status", "published");
+    .select("id, type, question_count");
 
   if (error) {
     throw new Error(`quizzes catalog: ${error.message}`);
@@ -131,7 +130,6 @@ export async function getPublishedQuizById(quizId: string): Promise<Quiz | null>
     .from("quizzes")
     .select(QUIZ_SELECT)
     .eq("id", quizId)
-    .eq("status", "published")
     .maybeSingle();
 
   if (error) {
@@ -149,8 +147,7 @@ export async function getRandomPublishedQuizByType(
   const { data, error } = await supabase
     .from("quizzes")
     .select(QUIZ_SELECT)
-    .eq("type", quizType)
-    .eq("status", "published");
+    .eq("type", quizType);
 
   if (error) {
     throw new Error(`quizzes random: ${error.message}`);
@@ -209,8 +206,7 @@ export async function getOrderedQuizQuestions(
     .in(
       "id",
       orderedLinks.map((link) => link.question_id),
-    )
-    .eq("status", "published");
+    );
 
   if (questionsError) {
     throw new Error(`quiz_questions list: ${questionsError.message}`);
@@ -280,8 +276,7 @@ export async function getRecentQuizHistoryForUser(
   const { data: quizzes, error: quizzesError } = await supabase
     .from("quizzes")
     .select(QUIZ_SELECT)
-    .in("id", quizIds)
-    .eq("status", "published");
+    .in("id", quizIds);
 
   if (quizzesError) {
     throw new Error(`quizzes history: ${quizzesError.message}`);
@@ -332,7 +327,6 @@ export async function getQuizQuestionById(
     .from("quiz_questions")
     .select(QUIZ_QUESTION_SELECT)
     .eq("id", questionId)
-    .eq("status", "published")
     .maybeSingle();
 
   if (error) {

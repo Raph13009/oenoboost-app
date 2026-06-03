@@ -44,7 +44,6 @@ export async function getFavoriteSoilsForUser(
     .from("soil_types")
     .select("id, slug, name_fr")
     .in("id", ids)
-    .eq("status", "published")
     .is("deleted_at", null);
 
   if (sError || !soils) return [];

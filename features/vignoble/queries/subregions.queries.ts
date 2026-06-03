@@ -6,17 +6,12 @@ const SUBREGION_COLUMNS =
 
 export async function getSubregions(regionId: string): Promise<Subregion[]> {
   const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
-  let query = supabase
+  const query = supabase
     .from("subregions")
     .select(SUBREGION_COLUMNS)
     .eq("region_id", regionId)
     .is("deleted_at", null);
-
-  if (!includeDraft) {
-    query = query.or("status.eq.published,published_at.not.is.null");
-  }
 
   const { data, error } = await query.order("map_order", {
     ascending: true,
@@ -30,17 +25,12 @@ export async function getSubregionBySlug(
   slug: string,
 ): Promise<Subregion | null> {
   const supabase = await createClient();
-  const includeDraft = process.env.NODE_ENV !== "production";
 
-  let query = supabase
+  const query = supabase
     .from("subregions")
     .select(SUBREGION_COLUMNS)
     .eq("slug", slug)
     .is("deleted_at", null);
-
-  if (!includeDraft) {
-    query = query.or("status.eq.published,published_at.not.is.null");
-  }
 
   const { data, error } = await query.single();
 

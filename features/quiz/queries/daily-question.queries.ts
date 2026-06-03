@@ -50,7 +50,6 @@ export async function getDailyQuestionForUser({
     .from("quiz_questions")
     .select("id, question_fr, question_en, scheduled_date")
     .eq("type", "daily")
-    .eq("status", "published")
     // Avoid relying on DB ordering/null ordering: we sort locally.
     .limit(50);
 

@@ -62,6 +62,7 @@ export type Appellation = {
   slug: string;
   name: string;
   area_hectares: number | null;
+  recognition_year: number | null;
   producer_count: number | null;
   production_volume_hl: number | null;
   price_range_min_eur: number | null;

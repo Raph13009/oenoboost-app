@@ -55,6 +55,10 @@ export function AppellationDetail({
   const na = "...";
   const formatNumber = (value: number | null) =>
     value === null ? na : Number(value).toLocaleString(locale);
+  // Recognition year is a plain year (e.g. 1936) — render it as-is, without
+  // the thousands separator that `toLocaleString` would add.
+  const formatYear = (value: number | null) =>
+    value === null ? na : String(value);
   const formatPriceRange = () => {
     if (
       appellation.price_range_min_eur === null ||
@@ -143,6 +147,14 @@ export function AppellationDetail({
                 {locale === "fr" ? "Prix" : "Price range"}
               </p>
               <p className="mt-1 text-sm font-medium">{formatPriceRange()}</p>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-background p-3">
+              <p className="text-xs text-muted-foreground">
+                {locale === "fr" ? "Date AOP" : "AOP date"}
+              </p>
+              <p className="mt-1 text-sm font-medium">
+                {formatYear(appellation.recognition_year)}
+              </p>
             </div>
           </div>
         </section>

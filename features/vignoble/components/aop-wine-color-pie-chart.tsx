@@ -7,6 +7,7 @@ import {
 
 const SEGMENT_COLORS: Record<WineColorKey, string> = {
   red: "var(--chart-1)",
+  rose: "var(--chart-4)",
   white: "#f5f0e8",
   sparkling: "var(--chart-3)",
   liqueur: "var(--chart-5)",
@@ -15,6 +16,7 @@ const SEGMENT_COLORS: Record<WineColorKey, string> = {
 export type AopWineColorPieChartLabels = {
   title: string;
   red: string;
+  rose: string;
   white: string;
   sparkling: string;
   liqueur: string;
@@ -27,6 +29,7 @@ type Props = {
 
 const LABEL_BY_KEY: Record<WineColorKey, keyof AopWineColorPieChartLabels> = {
   red: "red",
+  rose: "rose",
   white: "white",
   sparkling: "sparkling",
   liqueur: "liqueur",

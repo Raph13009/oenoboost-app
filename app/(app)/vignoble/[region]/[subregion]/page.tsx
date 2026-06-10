@@ -233,6 +233,7 @@ export default async function RegionSubregionOrAopPage({
         wineColorLabels={{
           title: dict.vignoble.wineColorBreakdownTitle,
           red: dict.vignoble.wineColorRed,
+          rose: dict.vignoble.wineColorRose,
           white: dict.vignoble.wineColorWhite,
           sparkling: dict.vignoble.wineColorSparkling,
           liqueur: dict.vignoble.wineColorLiqueur,

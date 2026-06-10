@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Appellation } from "../types";
 
 const AOP_COLUMNS =
-  "id, slug, name, area_hectares, producer_count, production_volume_hl, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, climate_fr, climate_en, is_grand_cru, wine_pct_red, wine_pct_white, wine_pct_sparkling, wine_pct_liqueur, is_premium, status, created_at, updated_at, deleted_at, published_at";
+  "id, slug, name, area_hectares, producer_count, production_volume_hl, price_range_min_eur, price_range_max_eur, history_fr, history_en, colors_grapes_fr, colors_grapes_en, soils_description_fr, soils_description_en, climate_fr, climate_en, is_grand_cru, wine_pct_red, wine_pct_rose, wine_pct_white, wine_pct_sparkling, wine_pct_liqueur, is_premium, status, created_at, updated_at, deleted_at, published_at";
 
 export async function getAppellations(
   subregionId: number,

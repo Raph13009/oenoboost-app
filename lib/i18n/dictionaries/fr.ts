@@ -378,6 +378,7 @@ const fr = {
     favoriteAuthRegister: "Créer un compte",
     wineColorBreakdownTitle: "Répartition par couleur",
     wineColorRed: "Vin rouge",
+    wineColorRose: "Vin rosé",
     wineColorWhite: "Vin blanc",
     wineColorSparkling: "Vin effervescent",
     wineColorLiqueur: "Vin liqueureux",

@@ -379,6 +379,7 @@ const en: Dictionary = {
     favoriteAuthRegister: "Create an account",
     wineColorBreakdownTitle: "Breakdown by wine color",
     wineColorRed: "Red wine",
+    wineColorRose: "Rosé wine",
     wineColorWhite: "White wine",
     wineColorSparkling: "Sparkling wine",
     wineColorLiqueur: "Fortified / liqueur wine",

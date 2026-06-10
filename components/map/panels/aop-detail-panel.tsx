@@ -18,6 +18,7 @@ export type AopPanelInfo = {
   colors_grapes_en: string | null;
   is_grand_cru: boolean;
   region_slug: string | null;
+  subregion_slug: string | null;
 };
 
 type AopDetailPanelProps = {
@@ -36,10 +37,15 @@ export function AopDetailPanel({
   onBack,
 }: AopDetailPanelProps) {
   const grapes = locale === "en" ? aop.colors_grapes_en : aop.colors_grapes_fr;
-  const detailHref =
-    aop.region_slug && aop.slug
-      ? `/vignoble/${aop.region_slug}/${aop.slug}`
-      : null;
+  // `from=map` marks the link as an AOP-detail link so the route renders the
+  // fiche even when the AOP shares its slug with a subregion; `subregion=`
+  // additionally gives the detail page its back-to-map context.
+  const detailHref = (() => {
+    if (!aop.region_slug || !aop.slug) return null;
+    const params = new URLSearchParams({ from: "map" });
+    if (aop.subregion_slug) params.set("subregion", aop.subregion_slug);
+    return `/vignoble/${aop.region_slug}/${aop.slug}?${params.toString()}`;
+  })();
 
   return (
     <div className="flex h-full flex-col">

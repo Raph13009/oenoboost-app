@@ -193,6 +193,7 @@ export function VignobleMap({
         colors_grapes_en: null,
         is_grand_cru: false,
         region_slug: null,
+        subregion_slug: null,
       });
       setSelectedAopLoading(true);
 
@@ -209,6 +210,7 @@ export function VignobleMap({
             colors_grapes_en: info.colors_grapes_en,
             is_grand_cru: info.is_grand_cru,
             region_slug: info.region_slug,
+            subregion_slug: info.subregion_slug,
           });
         }
       } catch (err) {

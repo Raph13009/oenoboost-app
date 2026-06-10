@@ -41,8 +41,22 @@ export default async function RegionSubregionOrAopPage({
   const region = await getRegionBySlug(regionSlug);
   if (!region) notFound();
 
+  // Some AOPs share their slug with a subregion (Bandol, Chablis, Cassis, …).
+  // AOP links always carry a query param (`?subregion=` and/or `?from=`) while
+  // subregion links are bare, so honor the link's intent instead of always
+  // shadowing the AOP detail page with the subregion list.
+  const prefersAopDetail = qp.subregion !== undefined || qp.from !== undefined;
+
   const subregion = await getSubregionBySlug(slug);
-  if (subregion && subregion.region_id === region.id) {
+  const subregionMatches = Boolean(
+    subregion && subregion.region_id === region.id,
+  );
+  const aop =
+    subregionMatches && !prefersAopDetail
+      ? null
+      : await getAopDetailByRegionAndSlug(regionSlug, slug);
+
+  if (subregion && subregion.region_id === region.id && !aop) {
     const appellations = await getAppellations(subregion.id);
     const subregionName = getContent(subregion, "name", locale);
     const user = await getCurrentUser();
@@ -111,7 +125,6 @@ export default async function RegionSubregionOrAopPage({
     );
   }
 
-  const aop = await getAopDetailByRegionAndSlug(regionSlug, slug);
   if (!aop) notFound();
 
   const user = await getCurrentUser();

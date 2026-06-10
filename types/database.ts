@@ -76,6 +76,7 @@ export type Appellation = {
   climate_en: string | null;
   is_grand_cru: boolean;
   wine_pct_red: number | null;
+  wine_pct_rose: number | null;
   wine_pct_white: number | null;
   wine_pct_sparkling: number | null;
   wine_pct_liqueur: number | null;

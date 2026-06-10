@@ -1,11 +1,12 @@
 import type { Appellation } from "../types";
 
-export type WineColorKey = "red" | "white" | "sparkling" | "liqueur";
+export type WineColorKey = "red" | "rose" | "white" | "sparkling" | "liqueur";
 
 export type WineColorBreakdown = Record<WineColorKey, number>;
 
 export const WINE_COLOR_ORDER = [
   "red",
+  "rose",
   "white",
   "sparkling",
   "liqueur",
@@ -16,6 +17,7 @@ export function getWineColorBreakdown(
   appellation: Pick<
     Appellation,
     | "wine_pct_red"
+    | "wine_pct_rose"
     | "wine_pct_white"
     | "wine_pct_sparkling"
     | "wine_pct_liqueur"
@@ -23,6 +25,7 @@ export function getWineColorBreakdown(
 ): WineColorBreakdown | null {
   const values = {
     red: appellation.wine_pct_red,
+    rose: appellation.wine_pct_rose,
     white: appellation.wine_pct_white,
     sparkling: appellation.wine_pct_sparkling,
     liqueur: appellation.wine_pct_liqueur,
@@ -33,13 +36,18 @@ export function getWineColorBreakdown(
 
   const breakdown: WineColorBreakdown = {
     red: values.red ?? 0,
+    rose: values.rose ?? 0,
     white: values.white ?? 0,
     sparkling: values.sparkling ?? 0,
     liqueur: values.liqueur ?? 0,
   };
 
   const total =
-    breakdown.red + breakdown.white + breakdown.sparkling + breakdown.liqueur;
+    breakdown.red +
+    breakdown.rose +
+    breakdown.white +
+    breakdown.sparkling +
+    breakdown.liqueur;
   if (total <= 0) return null;
 
   return breakdown;

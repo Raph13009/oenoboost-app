@@ -381,7 +381,7 @@ const fr = {
     wineColorRose: "Vin rosé",
     wineColorWhite: "Vin blanc",
     wineColorSparkling: "Vin effervescent",
-    wineColorLiqueur: "Vin liqueureux",
+    wineColorLiqueur: "Vin liquoreux",
     climateTitle: "Climat",
   },
   home: {

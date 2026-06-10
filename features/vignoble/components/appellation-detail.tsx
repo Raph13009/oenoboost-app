@@ -11,6 +11,7 @@ import type { AopWineColorPieChartLabels } from "./aop-wine-color-pie-chart";
 import { AopWineColorPieChart } from "./aop-wine-color-pie-chart";
 import type { AppellationFavoriteLabels } from "./appellation-favorite-button";
 import { AppellationFavoriteButton } from "./appellation-favorite-button";
+import { RichText } from "./rich-text";
 
 type AppellationDetailProps = {
   appellation: Appellation;
@@ -151,27 +152,30 @@ export function AppellationDetail({
           <h2 className="font-heading text-xl font-semibold">
             {locale === "fr" ? "Couleurs & Cépages" : "Colors & Grapes"}
           </h2>
-          <p className="mt-3 whitespace-pre-line leading-relaxed text-foreground/85">
-            {colorsGrapes || na}
-          </p>
+          <RichText
+            value={colorsGrapes || na}
+            className="mt-3 leading-relaxed text-foreground/85"
+          />
         </section>
 
         <section className="rounded-xl border border-border bg-card p-4 md:p-5">
           <h2 className="font-heading text-xl font-semibold">
             {locale === "fr" ? "Histoire" : "History"}
           </h2>
-          <p className="mt-3 max-w-prose leading-relaxed text-foreground/85">
-            {history || na}
-          </p>
+          <RichText
+            value={history || na}
+            className="mt-3 max-w-prose leading-relaxed text-foreground/85"
+          />
         </section>
 
         <section className="rounded-xl border border-border bg-card p-4 md:p-5">
           <h2 className="font-heading text-xl font-semibold">
             {locale === "fr" ? "Sols" : "Soils"}
           </h2>
-          <p className="mt-3 whitespace-pre-line leading-relaxed text-foreground/85">
-            {soils || na}
-          </p>
+          <RichText
+            value={soils || na}
+            className="mt-3 leading-relaxed text-foreground/85"
+          />
           {soilLabels && (
             <div className="mt-5 flex flex-col gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -203,9 +207,10 @@ export function AppellationDetail({
             <h2 className="font-heading text-xl font-semibold">
               {climateTitle ?? (locale === "fr" ? "Climat" : "Climate")}
             </h2>
-            <p className="mt-3 max-w-prose whitespace-pre-line leading-relaxed text-foreground/85">
-              {climate}
-            </p>
+            <RichText
+              value={climate}
+              className="mt-3 max-w-prose leading-relaxed text-foreground/85"
+            />
           </section>
         )}
         </div>
